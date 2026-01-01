@@ -1,234 +1,207 @@
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 
 local Library = {}
 
-function Library:Create(Config)
-    -- // Config Extraction
-    local Name = Config.Name or "UI Library"
-    local ThemeColor = Config.Color or Color3.fromRGB(255, 255, 255)
-    
+function Library:CreateWindow(title)
     local Window = {}
     local CurrentTab = nil
     local IsMinimized = false
     
-    -- // Main GUI
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "StrikerLib"
-    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Name = "StrikerUI"
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = (RunService:IsStudio() and game.Players.LocalPlayer:WaitForChild("PlayerGui") or CoreGui)
-
-    -- // Main Frame
+    
     local Main = Instance.new("Frame")
     Main.Name = "Main"
-    Main.Size = UDim2.new(0, 240, 0, 40) -- Starts small
+    Main.Size = UDim2.new(0, 240, 0, 45)
     Main.Position = UDim2.new(0.5, -120, 0.5, -100)
-    Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     Main.BorderSizePixel = 0
     Main.ClipsDescendants = true
+    Main.Active = true -- Important for dragging
     Main.Parent = ScreenGui
-
-    -- // Styling
-    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
+    
+    -- "Squircle" Corners
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+    
     local Stroke = Instance.new("UIStroke", Main)
-    Stroke.Color = Color3.fromRGB(50, 50, 50)
-    Stroke.Transparency = 0.5
+    Stroke.Color = Color3.fromRGB(255, 255, 255)
+    Stroke.Transparency = 0.8
     Stroke.Thickness = 1
 
-    -- // Header (The Draggable Part)
-    local Header = Instance.new("TextButton") -- TextButton for input catching
-    Header.Name = "Header"
-    Header.Size = UDim2.new(1, 0, 0, 40)
-    Header.BackgroundTransparency = 1
-    Header.Text = ""
-    Header.Parent = Main
-
-    local TitleLabel = Instance.new("TextLabel", Header)
-    TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+    -- Header Area (Title + Buttons)
+    local TitleLabel = Instance.new("TextLabel", Main)
+    TitleLabel.Size = UDim2.new(1, -70, 0, 40)
     TitleLabel.Position = UDim2.new(0, 12, 0, 0)
     TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = Name
+    TitleLabel.Text = title:upper()
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.Font = Enum.Font.GothamBold
     TitleLabel.TextSize = 13
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.ZIndex = 2
 
-    -- // Blended Buttons (No Backgrounds)
-    local CloseBtn = Instance.new("TextButton", Header)
-    CloseBtn.Size = UDim2.new(0, 30, 1, 0)
-    CloseBtn.Position = UDim2.new(1, -30, 0, 0)
-    CloseBtn.BackgroundTransparency = 1
-    CloseBtn.Text = "✕"
-    CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    -- Close Button (Fixed Text)
+    local CloseBtn = Instance.new("TextButton", Main)
+    CloseBtn.Size = UDim2.new(0, 22, 0, 22)
+    CloseBtn.Position = UDim2.new(1, -28, 0, 9)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseBtn.Text = "X" -- Standard X
+    CloseBtn.TextColor3 = Color3.new(1,1,1)
     CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 14
-
-    local MinBtn = Instance.new("TextButton", Header)
-    MinBtn.Size = UDim2.new(0, 30, 1, 0)
-    MinBtn.Position = UDim2.new(1, -60, 0, 0)
-    MinBtn.BackgroundTransparency = 1
-    MinBtn.Text = "—"
-    MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    MinBtn.Font = Enum.Font.GothamBold
-    MinBtn.TextSize = 14
-
-    -- // Content Holders
-    local TabContainer = Instance.new("Frame", Main)
-    TabContainer.Name = "TabContainer"
-    TabContainer.Size = UDim2.new(1, -20, 0, 25)
-    TabContainer.Position = UDim2.new(0, 10, 0, 40)
-    TabContainer.BackgroundTransparency = 1
+    CloseBtn.TextSize = 12
+    CloseBtn.ZIndex = 5
+    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 5)
     
-    local TabListLayout = Instance.new("UIListLayout", TabContainer)
-    TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-    TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    TabListLayout.Padding = UDim.new(0, 5)
+    -- Minimize Button (Fixed Text)
+    local MinBtn = Instance.new("TextButton", Main)
+    MinBtn.Size = UDim2.new(0, 22, 0, 22)
+    MinBtn.Position = UDim2.new(1, -55, 0, 9)
+    MinBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    MinBtn.Text = "-" -- Standard Dash
+    MinBtn.TextColor3 = Color3.new(1,1,1)
+    MinBtn.Font = Enum.Font.GothamBold
+    MinBtn.TextSize = 18 -- Slightly larger to make the dash visible
+    MinBtn.TextYAlignment = Enum.TextYAlignment.Bottom -- Aligns dash to center better
+    MinBtn.ZIndex = 5
+    Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 5)
 
-    local PageContainer = Instance.new("Frame", Main)
-    PageContainer.Name = "PageContainer"
-    PageContainer.Size = UDim2.new(1, 0, 1, -75)
-    PageContainer.Position = UDim2.new(0, 0, 0, 75)
-    PageContainer.BackgroundTransparency = 1
+    -- Tab Container
+    local TabHolder = Instance.new("Frame", Main)
+    TabHolder.Size = UDim2.new(1, 0, 0, 30)
+    TabHolder.Position = UDim2.new(0, 0, 0, 40)
+    TabHolder.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    TabHolder.BorderSizePixel = 0
+    TabHolder.ZIndex = 3
 
-    -- // DRAGGING (Universal Method)
-    local Dragging, DragInput, DragStart, StartPos
-    Header.InputBegan:Connect(function(input)
+    local TabList = Instance.new("UIListLayout", TabHolder)
+    TabList.FillDirection = Enum.FillDirection.Horizontal
+    TabList.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- Content Container
+    local Container = Instance.new("Frame", Main)
+    Container.Size = UDim2.new(1, 0, 1, -70)
+    Container.Position = UDim2.new(0, 0, 0, 70)
+    Container.BackgroundTransparency = 1
+    Container.ZIndex = 3
+
+    -- // FULLY DRAGGABLE LOGIC (Drags from anywhere)
+    local dragging, dragInput, dragStart, startPos
+    
+    Main.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging = true
-            DragStart = input.Position
-            StartPos = Main.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            DragInput = input
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
-        if input == DragInput and Dragging then
-            local Delta = input.Position - DragStart
-            Main.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)
-        end
-    end)
+    
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging = false
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- // CLOSE / MINIMIZE LOGIC
-    CloseBtn.MouseEnter:Connect(function() CloseBtn.TextColor3 = Color3.fromRGB(255, 50, 50) end)
-    CloseBtn.MouseLeave:Connect(function() CloseBtn.TextColor3 = Color3.fromRGB(150, 150, 150) end)
+    -- // BUTTON LOGIC
     CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-    MinBtn.MouseEnter:Connect(function() MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255) end)
-    MinBtn.MouseLeave:Connect(function() MinBtn.TextColor3 = Color3.fromRGB(150, 150, 150) end)
+    
     MinBtn.MouseButton1Click:Connect(function()
         IsMinimized = not IsMinimized
-        local TargetH = IsMinimized and 40 or (PageContainer:FindFirstChildOfClass("Frame") and PageContainer:FindFirstChildOfClass("Frame").UIListLayout.AbsoluteContentSize.Y + 85 or 200)
-        Main:TweenSize(UDim2.new(0, 240, 0, TargetH), "Out", "Quad", 0.3, true)
-        PageContainer.Visible = not IsMinimized
-        TabContainer.Visible = not IsMinimized
+        local TargetH = IsMinimized and 40 or (Container:FindFirstChildOfClass("ScrollingFrame") and Container:FindFirstChildOfClass("ScrollingFrame").UIListLayout.AbsoluteContentSize.Y + 80 or 200)
+        TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 240, 0, TargetH)}):Play()
     end)
 
-    -- // TABS
-    function Window:Tab(Name)
-        local TabObj = {}
-        
-        local TabBtn = Instance.new("TextButton", TabContainer)
-        TabBtn.Size = UDim2.new(0, 0, 1, 0) -- Auto sized
-        TabBtn.AutomaticSize = Enum.AutomaticSize.X
+    function Window:CreateTab(name)
+        local TabBtn = Instance.new("TextButton", TabHolder)
+        TabBtn.Size = UDim2.new(0, 80, 1, 0)
         TabBtn.BackgroundTransparency = 1
-        TabBtn.Text = Name
-        TabBtn.TextColor3 = Color3.fromRGB(100, 100, 100)
+        TabBtn.Text = name:upper()
+        TabBtn.TextColor3 = Color3.fromRGB(120, 120, 120)
         TabBtn.Font = Enum.Font.GothamBold
-        TabBtn.TextSize = 11
-        
-        local Page = Instance.new("Frame", PageContainer)
+        TabBtn.TextSize = 10
+        TabBtn.ZIndex = 5
+
+        local Page = Instance.new("ScrollingFrame", Container)
         Page.Size = UDim2.new(1, 0, 1, 0)
         Page.BackgroundTransparency = 1
         Page.Visible = false
-        
+        Page.CanvasSize = UDim2.new(0,0,0,0)
+        Page.ScrollBarThickness = 0
+        Page.ZIndex = 4
+
         local PageList = Instance.new("UIListLayout", Page)
         PageList.Padding = UDim.new(0, 6)
         PageList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        PageList.SortOrder = Enum.SortOrder.LayoutOrder
 
-        -- Auto-Resize Window Height
         PageList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            if Page.Visible and not IsMinimized then
-                Main:TweenSize(UDim2.new(0, 240, 0, PageList.AbsoluteContentSize.Y + 85), "Out", "Quad", 0.2, true)
+            Page.CanvasSize = UDim2.new(0,0,0,PageList.AbsoluteContentSize.Y + 10)
+            if not IsMinimized and Page.Visible then
+                Main.Size = UDim2.new(0, 240, 0, PageList.AbsoluteContentSize.Y + 85)
             end
         end)
 
         TabBtn.MouseButton1Click:Connect(function()
-            for _, v in pairs(PageContainer:GetChildren()) do v.Visible = false end
-            for _, v in pairs(TabContainer:GetChildren()) do 
-                if v:IsA("TextButton") then 
-                    TweenService:Create(v, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(100, 100, 100)}):Play()
-                end 
-            end
-            
+            for _, v in pairs(Container:GetChildren()) do v.Visible = false end
+            for _, v in pairs(TabHolder:GetChildren()) do if v:IsA("TextButton") then v.TextColor3 = Color3.fromRGB(120, 120, 120) end end
             Page.Visible = true
-            TweenService:Create(TabBtn, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-            Main:TweenSize(UDim2.new(0, 240, 0, PageList.AbsoluteContentSize.Y + 85), "Out", "Quad", 0.2, true)
+            TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            if not IsMinimized then
+                Main.Size = UDim2.new(0, 240, 0, PageList.AbsoluteContentSize.Y + 85)
+            end
         end)
 
-        -- Select first tab automatically
         if CurrentTab == nil then
             CurrentTab = Page
             Page.Visible = true
             TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         end
 
-        function TabObj:Toggle(Text, Callback)
-            local Tgl = Instance.new("TextButton", Page)
-            Tgl.Size = UDim2.new(0.9, 0, 0, 30)
-            Tgl.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-            Tgl.Text = Text
-            Tgl.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Tgl.Font = Enum.Font.GothamSemibold
-            Tgl.TextSize = 11
-            Tgl.AutoButtonColor = false
-            Instance.new("UICorner", Tgl).CornerRadius = UDim.new(0, 4)
-            
-            local Indicator = Instance.new("Frame", Tgl)
-            Indicator.Size = UDim2.new(0, 8, 0, 8)
-            Indicator.Position = UDim2.new(1, -20, 0.5, -4)
-            Indicator.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+        local TabItems = {}
 
-            local State = false
-            Tgl.MouseButton1Click:Connect(function()
-                State = not State
-                local Goal = State and ThemeColor or Color3.fromRGB(40, 40, 40)
-                TweenService:Create(Indicator, TweenInfo.new(0.2), {BackgroundColor3 = Goal}):Play()
-                Callback(State)
+        function TabItems:CreateToggle(text, callback)
+            local T = Instance.new("TextButton", Page)
+            T.Size = UDim2.new(0.92, 0, 0, 32)
+            T.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+            T.Text = text .. ": OFF"
+            T.TextColor3 = Color3.fromRGB(255, 65, 65)
+            T.Font = Enum.Font.GothamBold
+            T.TextSize = 11
+            T.ZIndex = 10 -- Higher ZIndex so it clicks instead of dragging
+            Instance.new("UICorner", T).CornerRadius = UDim.new(0, 6)
+            
+            local s = false
+            T.MouseButton1Click:Connect(function()
+                s = not s
+                T.Text = text .. ": " .. (s and "ON" or "OFF")
+                T.TextColor3 = s and Color3.fromRGB(65, 255, 65) or Color3.fromRGB(255, 65, 65)
+                callback(s)
             end)
         end
 
-        function TabObj:Button(Text, Callback)
-            local Btn = Instance.new("TextButton", Page)
-            Btn.Size = UDim2.new(0.9, 0, 0, 30)
-            Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            Btn.Text = Text
-            Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Btn.Font = Enum.Font.GothamSemibold
-            Btn.TextSize = 11
-            Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
-            
-            Btn.MouseButton1Click:Connect(function()
-                TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40,40,40)}):Play()
-                task.wait(0.1)
-                TweenService:Create(Btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25,25,25)}):Play()
-                Callback()
-            end)
+        function TabItems:CreateButton(text, callback)
+            local B = Instance.new("TextButton", Page)
+            B.Size = UDim2.new(0.92, 0, 0, 32)
+            B.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            B.Text = text
+            B.TextColor3 = Color3.new(1, 1, 1)
+            B.Font = Enum.Font.GothamBold
+            B.TextSize = 11
+            B.ZIndex = 10 -- Higher ZIndex so it clicks instead of dragging
+            Instance.new("UICorner", B).CornerRadius = UDim.new(0, 6)
+            B.MouseButton1Click:Connect(callback)
         end
 
-        return TabObj
+        return TabItems
     end
 
     return Window
