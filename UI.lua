@@ -51,6 +51,9 @@ end
 
 local DeviceScale = GetDeviceScale()
 
+-- Store notification positions to prevent overlap
+local ActiveNotificationPositions = {}
+
 function Library:CreateWindow(Title, Options)
     local WindowSettings = Options or {}
     local ThemeName = WindowSettings.Theme or "Dark"
@@ -108,25 +111,27 @@ function Library:CreateWindow(Title, Options)
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.Parent = Header
     
+    -- Updated close button position and styling
     local CloseButton = Instance.new("TextButton")
     CloseButton.Size = UDim2.new(0, 22 * ScaleFactor, 0, 22 * ScaleFactor)
     CloseButton.Position = UDim2.new(1, -28 * ScaleFactor, 0, 9 * ScaleFactor)
-    CloseButton.BackgroundColor3 = Theme.Button
-    CloseButton.Text = "X"
-    CloseButton.TextColor3 = Theme.Text
+    CloseButton.BackgroundColor3 = Theme.Background
+    CloseButton.Text = "×"
+    CloseButton.TextColor3 = Color3.fromRGB(200, 50, 50)
     CloseButton.Font = Enum.Font.GothamBold
-    CloseButton.TextSize = 11 * ScaleFactor
+    CloseButton.TextSize = 14 * ScaleFactor
     CloseButton.Parent = Header
     
     local CloseButtonCorner = Instance.new("UICorner")
     CloseButtonCorner.CornerRadius = UDim.new(0, 5)
     CloseButtonCorner.Parent = CloseButton
     
+    -- Updated minimize button position and styling
     local MinButton = Instance.new("TextButton")
     MinButton.Size = UDim2.new(0, 22 * ScaleFactor, 0, 22 * ScaleFactor)
-    MinButton.Position = UDim2.new(1, -55 * ScaleFactor, 0, 9 * ScaleFactor)
-    MinButton.BackgroundColor3 = Theme.Button
-    MinButton.Text = "-"
+    MinButton.Position = UDim2.new(1, -58 * ScaleFactor, 0, 9 * ScaleFactor)
+    MinButton.BackgroundColor3 = Theme.Background
+    MinButton.Text = "−"
     MinButton.TextColor3 = Theme.Text
     MinButton.Font = Enum.Font.GothamBold
     MinButton.TextSize = 14 * ScaleFactor
@@ -135,6 +140,24 @@ function Library:CreateWindow(Title, Options)
     local MinButtonCorner = Instance.new("UICorner")
     MinButtonCorner.CornerRadius = UDim.new(0, 5)
     MinButtonCorner.Parent = MinButton
+    
+    -- Make buttons blend in better
+    local function UpdateButtonHover(button, isClose)
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Theme.Button
+            }):Play()
+        end)
+        
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.2), {
+                BackgroundColor3 = Theme.Background
+            }):Play()
+        end)
+    end
+    
+    UpdateButtonHover(CloseButton, true)
+    UpdateButtonHover(MinButton, false)
     
     local TabHolder = Instance.new("Frame")
     TabHolder.Size = UDim2.new(1, -20 * ScaleFactor, 0, 28 * ScaleFactor)
@@ -227,7 +250,7 @@ function Library:CreateWindow(Title, Options)
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, 40 * ScaleFactor)
             }):Play()
         else
-            MinButton.Text = "-"
+            MinButton.Text = "−"
             TabHolder.Visible = true
             Content.Visible = true
             TweenService:Create(TabHolder, TweenInfo.new(0.2), {
@@ -617,30 +640,70 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotificationGui.Parent = CoreGui
         
-        -- Calculate position to avoid overlap with stats panels
-        local BaseY = ScreenSize.Y * 0.3 -- Start at 30% from top (middle right area)
-        local CurrentY = BaseY
+        -- Calculate available space for notifications
+        local BaseY = 20 * ScaleFactor -- Start at top of screen
+        local NotificationHeight = 60 * ScaleFactor
+        local NotificationSpacing = 10 * ScaleFactor
+        local MaxNotifications = math.floor((ScreenSize.Y * 0.7 - BaseY) / (NotificationHeight + NotificationSpacing))
         
-        -- Check all stats panels to avoid overlap
+        -- Find the first available Y position
+        local AvailableY = BaseY
+        local UsedPositions = {}
+        
+        -- Check existing notifications
+        for _, Notif in pairs(Library.Notifications) do
+            if Notif and Notif.Parent then
+                local Frame = Notif:FindFirstChildWhichIsA("Frame")
+                if Frame then
+                    local FrameY = Frame.AbsolutePosition.Y
+                    table.insert(UsedPositions, FrameY)
+                end
+            end
+        end
+        
+        -- Check stats panels for overlap
         for _, Panel in pairs(Library.StatsPanels) do
             if Panel.Frame and Panel.Frame.Parent then
                 local Frame = Panel.Frame
                 local FramePos = Frame.AbsolutePosition
                 local FrameSize = Frame.AbsoluteSize
                 
-                -- If stats panel is on right side, adjust notification position
-                if FramePos.X > ScreenSize.X * 0.5 then -- Right side
-                    if FramePos.Y < CurrentY and FramePos.Y + FrameSize.Y > CurrentY then
-                        CurrentY = FramePos.Y + FrameSize.Y + 10 * ScaleFactor
+                -- Only adjust if stats panel is on right side
+                if FramePos.X > ScreenSize.X * 0.5 then
+                    for y = BaseY, ScreenSize.Y - NotificationHeight, NotificationHeight + NotificationSpacing do
+                        if y < FramePos.Y or y > FramePos.Y + FrameSize.Y then
+                            -- Position doesn't overlap with stats panel
+                            AvailableY = y
+                            break
+                        end
                     end
                 end
             end
         end
         
+        -- Sort and find first available position
+        table.sort(UsedPositions)
+        for i = 1, MaxNotifications do
+            local TargetY = BaseY + (i-1) * (NotificationHeight + NotificationSpacing)
+            local PositionAvailable = true
+            
+            for _, UsedY in pairs(UsedPositions) do
+                if math.abs(UsedY - TargetY) < NotificationHeight then
+                    PositionAvailable = false
+                    break
+                end
+            end
+            
+            if PositionAvailable then
+                AvailableY = TargetY
+                break
+            end
+        end
+        
         local Notification = Instance.new("Frame")
-        Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
+        Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, NotificationHeight)
         Notification.BackgroundColor3 = Theme.Notification
-        Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY)
+        Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, AvailableY)
         Notification.Parent = NotificationGui
         
         Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -682,40 +745,30 @@ function Library:CreateWindow(Title, Options)
         table.insert(Library.Notifications, NotificationGui)
         
         task.spawn(function()
-            for i = #Library.Notifications, 1, -1 do
-                local Notif = Library.Notifications[i]
-                if Notif and Notif.Parent then
-                    local Frame = Notif:FindFirstChildWhichIsA("Frame")
-                    if Frame then
-                        TweenService:Create(Frame, TweenInfo.new(0.2), {
-                            Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY + ((i-1) * 70 * ScaleFactor))
-                        }):Play()
-                    end
-                end
-            end
-            
             task.wait(0.1)
             Notification.Visible = true
-            Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, AvailableY)
             TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Position = UDim2.new(1, -270 * ScaleFactor, 0, Notification.Position.Y.Offset)
+                Position = UDim2.new(1, -270 * ScaleFactor, 0, AvailableY)
             }):Play()
             
             task.wait(Duration)
             
             TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
+                Position = UDim2.new(1, -10 * ScaleFactor, 0, AvailableY)
             }):Play()
             
             task.wait(0.3)
-            NotificationGui:Destroy()
             
+            -- Remove from notifications table
             for i, Notif in pairs(Library.Notifications) do
                 if Notif == NotificationGui then
                     table.remove(Library.Notifications, i)
                     break
                 end
             end
+            
+            NotificationGui:Destroy()
         end)
     end
     
@@ -776,25 +829,14 @@ function Library:CreateWindow(Title, Options)
         StatsTitle.TextXAlignment = Enum.TextXAlignment.Left
         StatsTitle.Parent = StatsHeader
         
-        local RefreshButton = Instance.new("TextButton")
-        RefreshButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
-        RefreshButton.Position = UDim2.new(1, -55 * ScaleFactor, 0.5, -9 * ScaleFactor)
-        RefreshButton.BackgroundColor3 = Theme.Button
-        RefreshButton.Text = "⟳"
-        RefreshButton.TextColor3 = Theme.Text
-        RefreshButton.Font = Enum.Font.GothamBold
-        RefreshButton.TextSize = 10 * ScaleFactor
-        RefreshButton.Parent = StatsHeader
+        -- REMOVED the refresh button (useless top button)
         
-        local RefreshButtonCorner = Instance.new("UICorner")
-        RefreshButtonCorner.CornerRadius = UDim.new(1, 0)
-        RefreshButtonCorner.Parent = RefreshButton
-        
+        -- Updated minimize button with more spacing
         local MinButton = Instance.new("TextButton")
         MinButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
-        MinButton.Position = UDim2.new(1, -30 * ScaleFactor, 0.5, -9 * ScaleFactor)
-        MinButton.BackgroundColor3 = Theme.Button
-        MinButton.Text = "-"
+        MinButton.Position = UDim2.new(1, -40 * ScaleFactor, 0.5, -9 * ScaleFactor)
+        MinButton.BackgroundColor3 = Theme.Background
+        MinButton.Text = "−"
         MinButton.TextColor3 = Theme.Text
         MinButton.Font = Enum.Font.GothamBold
         MinButton.TextSize = 12 * ScaleFactor
@@ -804,12 +846,13 @@ function Library:CreateWindow(Title, Options)
         MinButtonCorner.CornerRadius = UDim.new(1, 0)
         MinButtonCorner.Parent = MinButton
         
+        -- Updated close button with more spacing
         local CloseButton = Instance.new("TextButton")
         CloseButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
         CloseButton.Position = UDim2.new(1, -15 * ScaleFactor, 0.5, -9 * ScaleFactor)
-        CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        CloseButton.Text = "X"
-        CloseButton.TextColor3 = Theme.Text
+        CloseButton.BackgroundColor3 = Theme.Background
+        CloseButton.Text = "×"
+        CloseButton.TextColor3 = Color3.fromRGB(200, 50, 50)
         CloseButton.Font = Enum.Font.GothamBold
         CloseButton.TextSize = 10 * ScaleFactor
         CloseButton.Parent = StatsHeader
@@ -818,28 +861,45 @@ function Library:CreateWindow(Title, Options)
         CloseButtonCorner.CornerRadius = UDim.new(1, 0)
         CloseButtonCorner.Parent = CloseButton
         
-        local StatsContent = Instance.new("ScrollingFrame")
+        -- Make buttons blend in better
+        local function UpdateStatsButtonHover(button, isClose)
+            button.MouseEnter:Connect(function()
+                TweenService:Create(button, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Theme.Button
+                }):Play()
+            end)
+            
+            button.MouseLeave:Connect(function()
+                TweenService:Create(button, TweenInfo.new(0.2), {
+                    BackgroundColor3 = Theme.Background
+                }):Play()
+            end)
+        end
+        
+        UpdateStatsButtonHover(CloseButton, true)
+        UpdateStatsButtonHover(MinButton, false)
+        
+        -- Use a Frame instead of ScrollingFrame for stats content
+        local StatsContent = Instance.new("Frame")
         StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 1, -30 * ScaleFactor)
         StatsContent.Position = UDim2.new(0, 5 * ScaleFactor, 0, 30 * ScaleFactor)
         StatsContent.BackgroundTransparency = 1
-        StatsContent.ScrollBarThickness = 2 * ScaleFactor
-        StatsContent.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-        StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+        StatsContent.ClipsDescendants = false
         StatsContent.Parent = StatsFrame
         
         local StatsListLayout = Instance.new("UIListLayout")
         StatsListLayout.Padding = UDim.new(0, 5 * ScaleFactor)
+        StatsListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         StatsListLayout.Parent = StatsContent
         
         StatsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
-            StatsContent.CanvasSize = UDim2.new(0, 0, 0, ContentHeight)
             
-            -- Auto-resize panel if too many stats
-            if ContentHeight > StatsContent.AbsoluteSize.Y and StatsContent.AbsoluteSize.Y < 250 * ScaleFactor then
-                local NewHeight = math.min(ContentHeight + 40 * ScaleFactor, 250 * ScaleFactor)
+            -- Auto-resize panel to fit all stats without scrolling
+            if ContentHeight > 0 then
+                local NewHeight = ContentHeight + 35 * ScaleFactor -- Add header height + padding
                 StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
-                StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 1, -30 * ScaleFactor)
+                StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 0, ContentHeight)
                 
                 -- Update position to maintain placement
                 if Position == "TopRight" then
@@ -878,7 +938,7 @@ function Library:CreateWindow(Title, Options)
                 StatsContent.Visible = false
                 StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 30 * ScaleFactor)
             else
-                MinButton.Text = "-"
+                MinButton.Text = "−"
                 StatsContent.Visible = true
                 StatsFrame.Size = PanelOriginalSize
             end
@@ -948,13 +1008,6 @@ function Library:CreateWindow(Title, Options)
             end
         end)
         
-        RefreshButton.MouseButton1Click:Connect(function()
-            RefreshStats()
-            TweenService:Create(RefreshButton, TweenInfo.new(0.2), {Rotation = 360}):Play()
-            task.wait(0.2)
-            RefreshButton.Rotation = 0
-        end)
-        
         MinButton.MouseButton1Click:Connect(function()
             ToggleMinimize()
         end)
@@ -967,6 +1020,14 @@ function Library:CreateWindow(Title, Options)
             }):Play()
             task.wait(0.2)
             StatsGui:Destroy()
+            
+            -- Remove from stats panels table
+            for i, Panel in pairs(Library.StatsPanels) do
+                if Panel.Frame == StatsFrame then
+                    table.remove(Library.StatsPanels, i)
+                    break
+                end
+            end
         end)
         
         local StatsPanelObject = {
@@ -1037,6 +1098,9 @@ function Library:CreateWindow(Title, Options)
 end
 
 function Library:CreateNotification(Title, Message, Type, Duration)
+    Type = Type or "Info"
+    Duration = Duration or 3
+    
     local NotificationGui = Instance.new("ScreenGui")
     NotificationGui.Name = "Notification_" .. HttpService:GenerateGUID(false)
     NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -1045,30 +1109,70 @@ function Library:CreateNotification(Title, Message, Type, Duration)
     local ScaleFactor = DeviceScale
     local Theme = Themes.Dark
     
-    -- Calculate position to avoid overlap with stats panels
-    local BaseY = ScreenSize.Y * 0.3 -- Start at 30% from top (middle right area)
-    local CurrentY = BaseY
+    -- Calculate available space for notifications
+    local BaseY = 20 * ScaleFactor -- Start at top of screen
+    local NotificationHeight = 60 * ScaleFactor
+    local NotificationSpacing = 10 * ScaleFactor
+    local MaxNotifications = math.floor((ScreenSize.Y * 0.7 - BaseY) / (NotificationHeight + NotificationSpacing))
     
-    -- Check all stats panels to avoid overlap
+    -- Find the first available Y position
+    local AvailableY = BaseY
+    local UsedPositions = {}
+    
+    -- Check existing notifications
+    for _, Notif in pairs(Library.Notifications) do
+        if Notif and Notif.Parent then
+            local Frame = Notif:FindFirstChildWhichIsA("Frame")
+            if Frame then
+                local FrameY = Frame.AbsolutePosition.Y
+                table.insert(UsedPositions, FrameY)
+            end
+        end
+    end
+    
+    -- Check stats panels for overlap
     for _, Panel in pairs(Library.StatsPanels) do
         if Panel.Frame and Panel.Frame.Parent then
             local Frame = Panel.Frame
             local FramePos = Frame.AbsolutePosition
             local FrameSize = Frame.AbsoluteSize
             
-            -- If stats panel is on right side, adjust notification position
-            if FramePos.X > ScreenSize.X * 0.5 then -- Right side
-                if FramePos.Y < CurrentY and FramePos.Y + FrameSize.Y > CurrentY then
-                    CurrentY = FramePos.Y + FrameSize.Y + 10 * ScaleFactor
+            -- Only adjust if stats panel is on right side
+            if FramePos.X > ScreenSize.X * 0.5 then
+                for y = BaseY, ScreenSize.Y - NotificationHeight, NotificationHeight + NotificationSpacing do
+                    if y < FramePos.Y or y > FramePos.Y + FrameSize.Y then
+                        -- Position doesn't overlap with stats panel
+                        AvailableY = y
+                        break
+                    end
                 end
             end
         end
     end
     
+    -- Sort and find first available position
+    table.sort(UsedPositions)
+    for i = 1, MaxNotifications do
+        local TargetY = BaseY + (i-1) * (NotificationHeight + NotificationSpacing)
+        local PositionAvailable = true
+        
+        for _, UsedY in pairs(UsedPositions) do
+            if math.abs(UsedY - TargetY) < NotificationHeight then
+                PositionAvailable = false
+                break
+            end
+        end
+        
+        if PositionAvailable then
+            AvailableY = TargetY
+            break
+        end
+    end
+    
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
+    Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, NotificationHeight)
     Notification.BackgroundColor3 = Theme.Notification
-    Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY)
+    Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, AvailableY)
     Notification.Parent = NotificationGui
     
     Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -1110,40 +1214,30 @@ function Library:CreateNotification(Title, Message, Type, Duration)
     table.insert(Library.Notifications, NotificationGui)
     
     task.spawn(function()
-        for i = #Library.Notifications, 1, -1 do
-            local Notif = Library.Notifications[i]
-            if Notif and Notif.Parent then
-                local Frame = Notif:FindFirstChildWhichIsA("Frame")
-                if Frame then
-                    TweenService:Create(Frame, TweenInfo.new(0.2), {
-                        Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY + ((i-1) * 70 * ScaleFactor))
-                    }):Play()
-                end
-            end
-        end
-        
         task.wait(0.1)
         Notification.Visible = true
-        Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
+        Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, AvailableY)
         TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = UDim2.new(1, -270 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Position = UDim2.new(1, -270 * ScaleFactor, 0, AvailableY)
         }):Play()
         
         task.wait(Duration or 3)
         
         TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Position = UDim2.new(1, -10 * ScaleFactor, 0, AvailableY)
         }):Play()
         
         task.wait(0.3)
-        NotificationGui:Destroy()
         
+        -- Remove from notifications table
         for i, Notif in pairs(Library.Notifications) do
             if Notif == NotificationGui then
                 table.remove(Library.Notifications, i)
                 break
             end
         end
+        
+        NotificationGui:Destroy()
     end)
 end
 
