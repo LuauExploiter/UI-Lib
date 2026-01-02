@@ -3,9 +3,12 @@ local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 
 local Library = {}
 Library.Windows = {}
+Library.Notifications = {}
+Library.StatsPanels = {}
 
 local Themes = {
     Dark = {
@@ -22,9 +25,29 @@ local Themes = {
         DropdownSelected = Color3.fromRGB(40, 40, 40),
         Stroke = Color3.fromRGB(255, 255, 255),
         Text = Color3.fromRGB(255, 255, 255),
-        TextMuted = Color3.fromRGB(130, 130, 130)
+        TextMuted = Color3.fromRGB(130, 130, 130),
+        Notification = Color3.fromRGB(25, 25, 25),
+        NotificationSuccess = Color3.fromRGB(20, 120, 20),
+        NotificationError = Color3.fromRGB(120, 20, 20),
+        NotificationWarning = Color3.fromRGB(120, 80, 20)
     }
 }
+
+local ScreenSize = workspace.CurrentCamera.ViewportSize
+
+local function GetDeviceScale()
+    local BaseScale = 1
+    if ScreenSize.Y <= 720 then
+        BaseScale = 0.85
+    elseif ScreenSize.Y <= 900 then
+        BaseScale = 0.9
+    elseif ScreenSize.Y >= 1440 then
+        BaseScale = 1.1
+    end
+    return BaseScale
+end
+
+local DeviceScale = GetDeviceScale()
 
 function Library:CreateWindow(Title, Options)
     local WindowSettings = Options or {}
@@ -32,27 +55,20 @@ function Library:CreateWindow(Title, Options)
     local Keybind = WindowSettings.Keybind or Enum.KeyCode.RightShift
     local UseKeySystem = WindowSettings.UseKeySystem or false
     local RequiredKey = WindowSettings.RequiredKey or ""
-    local StartMode = WindowSettings.Mode or "Tall"
     local Theme = Themes[ThemeName] or Themes.Dark
-    local ScaleFactor = WindowSettings.Scale or 1
-    
-    if UserInputService.TouchEnabled then
-        ScaleFactor = 0.8
-    end
+    local ScaleFactor = WindowSettings.Scale or DeviceScale
     
     local Window = {}
     local IsMinimized = false
     local CurrentPage = nil
     local Elements = {}
-    local Mode = StartMode
     local OriginalHeight = 350
-    local DeviceScale = ScaleFactor
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StrikerUI_" .. HttpService:GenerateGUID(false)
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = RunService:IsStudio() and game.Players.LocalPlayer:WaitForChild("PlayerGui") or CoreGui
+    ScreenGui.Parent = CoreGui
     
     local Main = Instance.new("Frame")
     Main.Name = "Main"
@@ -70,33 +86,33 @@ function Library:CreateWindow(Title, Options)
     local MainStroke = Instance.new("UIStroke")
     MainStroke.Color = Theme.Stroke
     MainStroke.Transparency = 0.8
-    MainStroke.Thickness = 1.5 * DeviceScale
+    MainStroke.Thickness = 1.5 * ScaleFactor
     MainStroke.Parent = Main
     
     local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 40 * DeviceScale)
+    Header.Size = UDim2.new(1, 0, 0, 40 * ScaleFactor)
     Header.BackgroundTransparency = 1
     Header.Parent = Main
     
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -70 * DeviceScale, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 12 * DeviceScale, 0, 0)
+    TitleLabel.Size = UDim2.new(1, -70 * ScaleFactor, 1, 0)
+    TitleLabel.Position = UDim2.new(0, 12 * ScaleFactor, 0, 0)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Text = Title
     TitleLabel.TextColor3 = Theme.Text
     TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextSize = 13 * DeviceScale
+    TitleLabel.TextSize = 13 * ScaleFactor
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.Parent = Header
     
     local CloseButton = Instance.new("TextButton")
-    CloseButton.Size = UDim2.new(0, 22 * DeviceScale, 0, 22 * DeviceScale)
-    CloseButton.Position = UDim2.new(1, -28 * DeviceScale, 0, 9 * DeviceScale)
+    CloseButton.Size = UDim2.new(0, 22 * ScaleFactor, 0, 22 * ScaleFactor)
+    CloseButton.Position = UDim2.new(1, -28 * ScaleFactor, 0, 9 * ScaleFactor)
     CloseButton.BackgroundColor3 = Theme.Button
     CloseButton.Text = "X"
     CloseButton.TextColor3 = Theme.Text
     CloseButton.Font = Enum.Font.GothamBold
-    CloseButton.TextSize = 11 * DeviceScale
+    CloseButton.TextSize = 11 * ScaleFactor
     CloseButton.Parent = Header
     
     local CloseButtonCorner = Instance.new("UICorner")
@@ -104,78 +120,61 @@ function Library:CreateWindow(Title, Options)
     CloseButtonCorner.Parent = CloseButton
     
     local MinButton = Instance.new("TextButton")
-    MinButton.Size = UDim2.new(0, 22 * DeviceScale, 0, 22 * DeviceScale)
-    MinButton.Position = UDim2.new(1, -55 * DeviceScale, 0, 9 * DeviceScale)
+    MinButton.Size = UDim2.new(0, 22 * ScaleFactor, 0, 22 * ScaleFactor)
+    MinButton.Position = UDim2.new(1, -55 * ScaleFactor, 0, 9 * ScaleFactor)
     MinButton.BackgroundColor3 = Theme.Button
     MinButton.Text = "-"
     MinButton.TextColor3 = Theme.Text
     MinButton.Font = Enum.Font.GothamBold
-    MinButton.TextSize = 14 * DeviceScale
+    MinButton.TextSize = 14 * ScaleFactor
     MinButton.Parent = Header
     
     local MinButtonCorner = Instance.new("UICorner")
     MinButtonCorner.CornerRadius = UDim.new(0, 5)
     MinButtonCorner.Parent = MinButton
     
-    local Container = Instance.new("Frame")
-    Container.BackgroundTransparency = 1
-    Container.Parent = Main
+    local TabHolder = Instance.new("Frame")
+    TabHolder.Size = UDim2.new(1, -20 * ScaleFactor, 0, 28 * ScaleFactor)
+    TabHolder.Position = UDim2.new(0, 10 * ScaleFactor, 0, 40 * ScaleFactor)
+    TabHolder.BackgroundColor3 = Theme.Tab
+    TabHolder.Parent = Main
+    
+    local TabHolderCorner = Instance.new("UICorner")
+    TabHolderCorner.CornerRadius = UDim.new(0, 5)
+    TabHolderCorner.Parent = TabHolder
     
     local TabList = Instance.new("ScrollingFrame")
+    TabList.Size = UDim2.new(1, 0, 1, 0)
     TabList.BackgroundTransparency = 1
-    TabList.ScrollBarThickness = 0
-    TabList.Parent = Container
+    TabList.ScrollBarThickness = 2 * ScaleFactor
+    TabList.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+    TabList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    TabList.Parent = TabHolder
     
     local TabListLayout = Instance.new("UIListLayout")
-    TabListLayout.Padding = UDim.new(0, 5 * DeviceScale)
+    TabListLayout.Padding = UDim.new(0, 5 * ScaleFactor)
+    TabListLayout.FillDirection = Enum.FillDirection.Horizontal
     TabListLayout.Parent = TabList
     
     local Content = Instance.new("Frame")
     Content.BackgroundTransparency = 1
-    Content.Parent = Container
+    Content.Parent = Main
+    
+    TabListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabList.CanvasSize = UDim2.new(0, TabListLayout.AbsoluteContentSize.X, 0, 0)
+    end)
     
     local function UpdateSize()
-        if Mode == "Tall" then
-            local ContentHeight = CurrentPage and (CurrentPage.CanvasSize.Y.Offset + 20) or 200
-            local NewHeight = math.max(350, 75 + ContentHeight)
-            OriginalHeight = NewHeight
-            
-            Main.Size = UDim2.new(0, 230 * DeviceScale, 0, NewHeight * DeviceScale)
-            Container.Size = UDim2.new(1, 0, 1, -40 * DeviceScale)
-            Container.Position = UDim2.new(0, 0, 0, 40 * DeviceScale)
-            
-            TabList.Size = UDim2.new(1, -20 * DeviceScale, 0, 28 * DeviceScale)
-            TabList.Position = UDim2.new(0, 10 * DeviceScale, 0, 0)
-            TabListLayout.FillDirection = Enum.FillDirection.Horizontal
-            
-            Content.Size = UDim2.new(1, 0, 1, -33 * DeviceScale)
-            Content.Position = UDim2.new(0, 0, 0, 33 * DeviceScale)
-        else
-            Main.Size = UDim2.new(0, 400 * DeviceScale, 0, 350 * DeviceScale)
-            OriginalHeight = 350 * DeviceScale
-            Container.Size = UDim2.new(1, 0, 1, -40 * DeviceScale)
-            Container.Position = UDim2.new(0, 0, 0, 40 * DeviceScale)
-            
-            TabList.Size = UDim2.new(0, 100 * DeviceScale, 1, 0)
-            TabList.Position = UDim2.new(0, 10 * DeviceScale, 0, 0)
-            TabListLayout.FillDirection = Enum.FillDirection.Vertical
-            
-            Content.Size = UDim2.new(1, -120 * DeviceScale, 1, 0)
-            Content.Position = UDim2.new(0, 110 * DeviceScale, 0, 0)
-        end
+        local ContentHeight = CurrentPage and (CurrentPage.CanvasSize.Y.Offset + 30 * ScaleFactor) or 200
+        local NewHeight = math.max(350 * ScaleFactor, 85 * ScaleFactor + ContentHeight)
+        OriginalHeight = NewHeight
         
-        if TabList then
-            local TotalHeight = 0
-            for _, Child in pairs(TabList:GetChildren()) do
-                if Child:IsA("TextButton") then
-                    TotalHeight = TotalHeight + Child.AbsoluteSize.Y + (5 * DeviceScale)
-                end
-            end
-            TabList.CanvasSize = UDim2.new(0, 0, 0, TotalHeight)
-        end
+        Main.Size = UDim2.new(0, 250 * ScaleFactor, 0, NewHeight)
+        Content.Size = UDim2.new(1, 0, 1, -85 * ScaleFactor)
+        Content.Position = UDim2.new(0, 0, 0, 85 * ScaleFactor)
     end
     
-    Main.Position = UDim2.new(0.5, -115 * DeviceScale, 0.5, -175 * DeviceScale)
+    Main.Position = UDim2.new(0.5, -125 * ScaleFactor, 0.5, -OriginalHeight/2)
     
     CloseButton.MouseButton1Click:Connect(function()
         local Tween = TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -192,18 +191,26 @@ function Library:CreateWindow(Title, Options)
         IsMinimized = not IsMinimized
         
         if IsMinimized then
-            TweenService:Create(Container, TweenInfo.new(0.2), {
+            TweenService:Create(TabHolder, TweenInfo.new(0.2), {
+                BackgroundTransparency = 1
+            }):Play()
+            TweenService:Create(Content, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
             task.wait(0.1)
-            Container.Visible = false
+            TabHolder.Visible = false
+            Content.Visible = false
             
             TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, Main.Size.X.Offset, 0, 40 * DeviceScale)
+                Size = UDim2.new(0, Main.Size.X.Offset, 0, 40 * ScaleFactor)
             }):Play()
         else
-            Container.Visible = true
-            TweenService:Create(Container, TweenInfo.new(0.2), {
+            TabHolder.Visible = true
+            Content.Visible = true
+            TweenService:Create(TabHolder, TweenInfo.new(0.2), {
+                BackgroundTransparency = 0
+            }):Play()
+            TweenService:Create(Content, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
             
@@ -223,37 +230,26 @@ function Library:CreateWindow(Title, Options)
         Keybind = NewKeybind
     end
     
-    function Window:SetMode(NewMode)
-        local OldMode = Mode
-        Mode = NewMode
-        
-        if OldMode ~= Mode then
-            UpdateSize()
-            Main.Position = UDim2.new(0.5, -Main.Size.X.Offset/2, 0.5, -Main.Size.Y.Offset/2)
-        end
-    end
-    
     function Window:CreateTab(Name)
         local TabButton = Instance.new("TextButton")
-        TabButton.Size = Mode == "Tall" and UDim2.new(0, 70 * DeviceScale, 0, 28 * DeviceScale) or UDim2.new(1, 0, 0, 30 * DeviceScale)
-        TabButton.BackgroundColor3 = Theme.Tab
+        TabButton.Size = UDim2.new(0, 70 * ScaleFactor, 1, 0)
+        TabButton.BackgroundTransparency = 1
         TabButton.Text = Name
         TabButton.TextColor3 = Theme.TextMuted
         TabButton.Font = Enum.Font.GothamBold
-        TabButton.TextSize = 9 * DeviceScale
+        TabButton.TextSize = 9 * ScaleFactor
         TabButton.Parent = TabList
-        
-        Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0, 5)
         
         local Page = Instance.new("ScrollingFrame")
         Page.BackgroundTransparency = 1
         Page.Visible = false
-        Page.ScrollBarThickness = 0
+        Page.ScrollBarThickness = 2 * ScaleFactor
+        Page.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
         Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         Page.Parent = Content
         
         local PageList = Instance.new("UIListLayout")
-        PageList.Padding = UDim.new(0, 8 * DeviceScale)
+        PageList.Padding = UDim.new(0, 8 * ScaleFactor)
         PageList.HorizontalAlignment = Enum.HorizontalAlignment.Center
         PageList.Parent = Page
         
@@ -272,12 +268,10 @@ function Library:CreateWindow(Title, Options)
             for _, Child in pairs(TabList:GetChildren()) do
                 if Child:IsA("TextButton") then
                     Child.TextColor3 = Theme.TextMuted
-                    Child.BackgroundColor3 = Theme.Tab
                 end
             end
             Page.Visible = true
             TabButton.TextColor3 = Theme.Text
-            TabButton.BackgroundColor3 = Theme.TabSelected
             CurrentPage = Page
             UpdateSize()
         end)
@@ -286,23 +280,22 @@ function Library:CreateWindow(Title, Options)
             CurrentPage = Page
             Page.Visible = true
             TabButton.TextColor3 = Theme.Text
-            TabButton.BackgroundColor3 = Theme.TabSelected
             UpdateSize()
         end
         
-        Page.Size = UDim2.new(1, -20 * DeviceScale, 1, -10 * DeviceScale)
-        Page.Position = UDim2.new(0, 10 * DeviceScale, 0, 5 * DeviceScale)
+        Page.Size = UDim2.new(1, -10 * ScaleFactor, 1, -5 * ScaleFactor)
+        Page.Position = UDim2.new(0, 5 * ScaleFactor, 0, 5 * ScaleFactor)
         
         local TabItems = {}
         
         function TabItems:CreateToggle(Text, Callback)
             local ToggleButton = Instance.new("TextButton")
-            ToggleButton.Size = UDim2.new(0, (Mode == "Tall" and 200 or 250) * DeviceScale, 0, 32 * DeviceScale)
+            ToggleButton.Size = UDim2.new(0, 220 * ScaleFactor, 0, 32 * ScaleFactor)
             ToggleButton.BackgroundColor3 = Theme.Toggle
             ToggleButton.Text = Text .. ": OFF"
             ToggleButton.TextColor3 = Theme.ToggleOff
             ToggleButton.Font = Enum.Font.GothamBold
-            ToggleButton.TextSize = 10 * DeviceScale
+            ToggleButton.TextSize = 10 * ScaleFactor
             ToggleButton.Parent = Page
             
             Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 6)
@@ -337,12 +330,12 @@ function Library:CreateWindow(Title, Options)
         
         function TabItems:CreateButton(Text, Callback)
             local Button = Instance.new("TextButton")
-            Button.Size = UDim2.new(0, (Mode == "Tall" and 200 or 250) * DeviceScale, 0, 32 * DeviceScale)
+            Button.Size = UDim2.new(0, 220 * ScaleFactor, 0, 32 * ScaleFactor)
             Button.BackgroundColor3 = Theme.Button
             Button.Text = Text
             Button.TextColor3 = Theme.Text
             Button.Font = Enum.Font.GothamBold
-            Button.TextSize = 10 * DeviceScale
+            Button.TextSize = 10 * ScaleFactor
             Button.Parent = Page
             
             Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 6)
@@ -366,28 +359,28 @@ function Library:CreateWindow(Title, Options)
         
         function TabItems:CreateTextBox(Text, Placeholder, Callback)
             local TextBoxFrame = Instance.new("Frame")
-            TextBoxFrame.Size = UDim2.new(0, (Mode == "Tall" and 200 or 250) * DeviceScale, 0, 40 * DeviceScale)
+            TextBoxFrame.Size = UDim2.new(0, 220 * ScaleFactor, 0, 45 * ScaleFactor)
             TextBoxFrame.BackgroundTransparency = 1
             TextBoxFrame.Parent = Page
             
             local TextBoxTitle = Instance.new("TextLabel")
-            TextBoxTitle.Size = UDim2.new(1, 0, 0, 15 * DeviceScale)
+            TextBoxTitle.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
             TextBoxTitle.BackgroundTransparency = 1
             TextBoxTitle.Text = Text
             TextBoxTitle.TextColor3 = Theme.Text
             TextBoxTitle.Font = Enum.Font.GothamBold
-            TextBoxTitle.TextSize = 9 * DeviceScale
+            TextBoxTitle.TextSize = 10 * ScaleFactor
             TextBoxTitle.TextXAlignment = Enum.TextXAlignment.Left
             TextBoxTitle.Parent = TextBoxFrame
             
             local TextBox = Instance.new("TextBox")
-            TextBox.Size = UDim2.new(1, 0, 0, 20 * DeviceScale)
-            TextBox.Position = UDim2.new(0, 0, 0, 20 * DeviceScale)
+            TextBox.Size = UDim2.new(1, 0, 0, 22 * ScaleFactor)
+            TextBox.Position = UDim2.new(0, 0, 0, 20 * ScaleFactor)
             TextBox.BackgroundColor3 = Theme.TextBox
             TextBox.TextColor3 = Theme.Text
             TextBox.PlaceholderText = Placeholder
             TextBox.Font = Enum.Font.Gotham
-            TextBox.TextSize = 10 * DeviceScale
+            TextBox.TextSize = 10 * ScaleFactor
             TextBox.ClearTextOnFocus = false
             TextBox.Parent = TextBoxFrame
             
@@ -415,67 +408,62 @@ function Library:CreateWindow(Title, Options)
         
         function TabItems:CreateLabel(Text)
             local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(0, (Mode == "Tall" and 200 or 250) * DeviceScale, 0, 20 * DeviceScale)
+            Label.Size = UDim2.new(0, 220 * ScaleFactor, 0, 20 * ScaleFactor)
             Label.BackgroundTransparency = 1
             Label.Text = Text
             Label.TextColor3 = Theme.TextMuted
             Label.Font = Enum.Font.Gotham
-            Label.TextSize = 10 * DeviceScale
+            Label.TextSize = 10 * ScaleFactor
             Label.Parent = Page
         end
         
         function TabItems:CreateDropdown(Text, Options, Callback)
             local DropdownFrame = Instance.new("Frame")
-            DropdownFrame.Size = UDim2.new(0, (Mode == "Tall" and 200 or 250) * DeviceScale, 0, 32 * DeviceScale)
+            DropdownFrame.Size = UDim2.new(0, 220 * ScaleFactor, 0, 32 * ScaleFactor)
             DropdownFrame.BackgroundColor3 = Theme.Dropdown
             DropdownFrame.Parent = Page
             
             Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 6)
             
             local DropdownTitle = Instance.new("TextLabel")
-            DropdownTitle.Size = UDim2.new(1, -30 * DeviceScale, 1, 0)
-            DropdownTitle.Position = UDim2.new(0, 8 * DeviceScale, 0, 0)
+            DropdownTitle.Size = UDim2.new(1, -30 * ScaleFactor, 1, 0)
+            DropdownTitle.Position = UDim2.new(0, 8 * ScaleFactor, 0, 0)
             DropdownTitle.BackgroundTransparency = 1
             DropdownTitle.Text = Text .. ": " .. (Options[1] or "NONE")
             DropdownTitle.TextColor3 = Theme.Text
             DropdownTitle.Font = Enum.Font.GothamBold
-            DropdownTitle.TextSize = 10 * DeviceScale
+            DropdownTitle.TextSize = 10 * ScaleFactor
             DropdownTitle.TextXAlignment = Enum.TextXAlignment.Left
             DropdownTitle.Parent = DropdownFrame
             
             local DropdownButton = Instance.new("TextButton")
-            DropdownButton.Size = UDim2.new(0, 20 * DeviceScale, 0, 20 * DeviceScale)
-            DropdownButton.Position = UDim2.new(1, -25 * DeviceScale, 0.5, -10 * DeviceScale)
+            DropdownButton.Size = UDim2.new(0, 20 * ScaleFactor, 0, 20 * ScaleFactor)
+            DropdownButton.Position = UDim2.new(1, -25 * ScaleFactor, 0.5, -10 * ScaleFactor)
             DropdownButton.BackgroundColor3 = Theme.Button
             DropdownButton.Text = "▼"
             DropdownButton.TextColor3 = Theme.Text
             DropdownButton.Font = Enum.Font.GothamBold
-            DropdownButton.TextSize = 10 * DeviceScale
+            DropdownButton.TextSize = 10 * ScaleFactor
             DropdownButton.Parent = DropdownFrame
             
             Instance.new("UICorner", DropdownButton).CornerRadius = UDim.new(0, 4)
             
-            local DropdownList = Instance.new("Frame")
-            DropdownList.Size = UDim2.new(1, 0, 0, 0)
-            DropdownList.Position = UDim2.new(0, 0, 1, 5 * DeviceScale)
+            local DropdownList = Instance.new("ScrollingFrame")
+            DropdownList.Size = UDim2.new(0, 220 * ScaleFactor, 0, 0)
             DropdownList.BackgroundColor3 = Theme.Dropdown
+            DropdownList.ScrollBarThickness = 0
+            DropdownList.CanvasSize = UDim2.new(0, 0, 0, 0)
             DropdownList.Visible = false
             DropdownList.ZIndex = 10
-            DropdownList.Parent = DropdownFrame
+            DropdownList.Parent = ScreenGui
             
             Instance.new("UICorner", DropdownList).CornerRadius = UDim.new(0, 6)
-            
-            local DropdownStroke = Instance.new("UIStroke")
-            DropdownStroke.Color = Theme.Stroke
-            DropdownStroke.Transparency = 0.5
-            DropdownStroke.Thickness = 1
-            DropdownStroke.Parent = DropdownList
             
             local ListLayout = Instance.new("UIListLayout")
             ListLayout.Parent = DropdownList
             
             ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                DropdownList.Size = UDim2.new(1, 0, 0, math.min(ListLayout.AbsoluteContentSize.Y, 110 * DeviceScale))
+                DropdownList.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y)
             end)
             
             local IsOpen = false
@@ -492,11 +480,11 @@ function Library:CreateWindow(Title, Options)
             end
             
             local function CloseAllDropdowns()
-                for _, Frame in pairs(ScreenGui:GetDescendants()) do
-                    if Frame:IsA("Frame") and Frame.Name == "DropdownList" then
-                        TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+                for _, Child in pairs(ScreenGui:GetChildren()) do
+                    if Child:IsA("ScrollingFrame") and Child ~= TabList then
+                        TweenService:Create(Child, TweenInfo.new(0.2), {Size = UDim2.new(0, 220 * ScaleFactor, 0, 0)}):Play()
                         task.wait(0.2)
-                        Frame.Visible = false
+                        Child.Visible = false
                     end
                 end
             end
@@ -506,12 +494,14 @@ function Library:CreateWindow(Title, Options)
                 
                 if IsOpen then
                     CloseAllDropdowns()
+                    local Position = DropdownFrame.AbsolutePosition
+                    DropdownList.Position = UDim2.new(0, Position.X, 0, Position.Y + DropdownFrame.AbsoluteSize.Y + 2)
                     DropdownList.Visible = true
                     TweenService:Create(DropdownList, TweenInfo.new(0.2), {
-                        Size = UDim2.new(1, 0, 0, math.min(#Options * 25 * DeviceScale, 110 * DeviceScale))
+                        Size = UDim2.new(0, 220 * ScaleFactor, 0, math.min(#Options * 25 * ScaleFactor, 120 * ScaleFactor))
                     }):Play()
                 else
-                    TweenService:Create(DropdownList, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+                    TweenService:Create(DropdownList, TweenInfo.new(0.2), {Size = UDim2.new(0, 220 * ScaleFactor, 0, 0)}):Play()
                     task.wait(0.2)
                     DropdownList.Visible = false
                 end
@@ -522,13 +512,13 @@ function Library:CreateWindow(Title, Options)
             UserInputService.InputBegan:Connect(function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 and IsOpen then
                     local MousePos = Input.Position
-                    local DropdownPos = DropdownFrame.AbsolutePosition
-                    local DropdownSize = DropdownFrame.AbsoluteSize
                     local ListPos = DropdownList.AbsolutePosition
                     local ListSize = DropdownList.AbsoluteSize
+                    local FramePos = DropdownFrame.AbsolutePosition
+                    local FrameSize = DropdownFrame.AbsoluteSize
                     
-                    if not (MousePos.X >= DropdownPos.X and MousePos.X <= DropdownPos.X + DropdownSize.X and
-                           MousePos.Y >= DropdownPos.Y and MousePos.Y <= DropdownPos.Y + DropdownSize.Y + ListSize.Y) then
+                    if not (MousePos.X >= FramePos.X and MousePos.X <= FramePos.X + FrameSize.X and
+                           MousePos.Y >= FramePos.Y and MousePos.Y <= FramePos.Y + FrameSize.Y + ListSize.Y) then
                         ToggleDropdown()
                     end
                 end
@@ -536,12 +526,12 @@ function Library:CreateWindow(Title, Options)
             
             for _, Option in pairs(Options) do
                 local OptionButton = Instance.new("TextButton")
-                OptionButton.Size = UDim2.new(1, 0, 0, 25 * DeviceScale)
+                OptionButton.Size = UDim2.new(1, 0, 0, 25 * ScaleFactor)
                 OptionButton.BackgroundColor3 = Theme.Dropdown
                 OptionButton.Text = Option
                 OptionButton.TextColor3 = Theme.Text
                 OptionButton.Font = Enum.Font.Gotham
-                OptionButton.TextSize = 10 * DeviceScale
+                OptionButton.TextSize = 10 * ScaleFactor
                 OptionButton.Parent = DropdownList
                 
                 Instance.new("UICorner", OptionButton).CornerRadius = UDim.new(0, 4)
@@ -575,6 +565,243 @@ function Library:CreateWindow(Title, Options)
         return TabItems
     end
     
+    function Window:CreateNotification(Title, Message, Type, Duration)
+        Type = Type or "Info"
+        Duration = Duration or 5
+        
+        local NotificationGui = Instance.new("ScreenGui")
+        NotificationGui.Name = "Notification_" .. HttpService:GenerateGUID(false)
+        NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        NotificationGui.Parent = CoreGui
+        
+        local Notification = Instance.new("Frame")
+        Notification.Size = UDim2.new(0, 300 * ScaleFactor, 0, 80 * ScaleFactor)
+        Notification.BackgroundColor3 = Theme.Notification
+        Notification.Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + (#Library.Notifications * 90 * ScaleFactor))
+        Notification.Parent = NotificationGui
+        
+        Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
+        
+        local NotificationStroke = Instance.new("UIStroke")
+        NotificationStroke.Color = Type == "Success" and Theme.NotificationSuccess or 
+                                  Type == "Error" and Theme.NotificationError or
+                                  Type == "Warning" and Theme.NotificationWarning or
+                                  Theme.Stroke
+        NotificationStroke.Thickness = 1.5 * ScaleFactor
+        NotificationStroke.Parent = Notification
+        
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 25 * ScaleFactor)
+        TitleLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 8 * ScaleFactor)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.Text = Title
+        TitleLabel.TextColor3 = Theme.Text
+        TitleLabel.Font = Enum.Font.GothamBold
+        TitleLabel.TextSize = 12 * ScaleFactor
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.Parent = Notification
+        
+        local MessageLabel = Instance.new("TextLabel")
+        MessageLabel.Size = UDim2.new(1, -20 * ScaleFactor, 1, -40 * ScaleFactor)
+        MessageLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
+        MessageLabel.BackgroundTransparency = 1
+        MessageLabel.Text = Message
+        MessageLabel.TextColor3 = Theme.TextMuted
+        MessageLabel.Font = Enum.Font.Gotham
+        MessageLabel.TextSize = 10 * ScaleFactor
+        MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+        MessageLabel.TextYAlignment = Enum.TextYAlignment.Top
+        MessageLabel.TextWrapped = true
+        MessageLabel.Parent = Notification
+        
+        Notification.Visible = false
+        
+        table.insert(Library.Notifications, NotificationGui)
+        
+        task.spawn(function()
+            for i = #Library.Notifications, 1, -1 do
+                local Notif = Library.Notifications[i]
+                if Notif and Notif.Parent then
+                    local Frame = Notif:FindFirstChildWhichIsA("Frame")
+                    if Frame then
+                        TweenService:Create(Frame, TweenInfo.new(0.3), {
+                            Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + ((i-1) * 90 * ScaleFactor))
+                        }):Play()
+                    end
+                end
+            end
+            
+            task.wait(0.1)
+            Notification.Visible = true
+            Notification.Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Position = UDim2.new(1, -320 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            }):Play()
+            
+            task.wait(Duration)
+            
+            TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            }):Play()
+            
+            task.wait(0.3)
+            NotificationGui:Destroy()
+            
+            for i, Notif in pairs(Library.Notifications) do
+                if Notif == NotificationGui then
+                    table.remove(Library.Notifications, i)
+                    break
+                end
+            end
+        end)
+    end
+    
+    function Window:CreateStatsPanel(Position, Size)
+        local Positions = {
+            TopLeft = UDim2.new(0, 20, 0, 20),
+            TopRight = UDim2.new(1, -Size.X.Offset - 20, 0, 20),
+            MiddleLeft = UDim2.new(0, 20, 0.5, -Size.Y.Offset/2),
+            MiddleRight = UDim2.new(1, -Size.X.Offset - 20, 0.5, -Size.Y.Offset/2),
+            BottomLeft = UDim2.new(0, 20, 1, -Size.Y.Offset - 20),
+            BottomRight = UDim2.new(1, -Size.X.Offset - 20, 1, -Size.Y.Offset - 20),
+            Center = UDim2.new(0.5, -Size.X.Offset/2, 0.5, -Size.Y.Offset/2)
+        }
+        
+        local StatsGui = Instance.new("ScreenGui")
+        StatsGui.Name = "StatsPanel_" .. HttpService:GenerateGUID(false)
+        StatsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        StatsGui.Parent = CoreGui
+        
+        local StatsFrame = Instance.new("Frame")
+        StatsFrame.Size = Size
+        StatsFrame.Position = Positions[Position] or Positions["TopRight"]
+        StatsFrame.BackgroundColor3 = Theme.Background
+        StatsFrame.BorderSizePixel = 0
+        StatsFrame.ClipsDescendants = true
+        StatsFrame.Parent = StatsGui
+        
+        Instance.new("UICorner", StatsFrame).CornerRadius = UDim.new(0, 8)
+        
+        local StatsStroke = Instance.new("UIStroke")
+        StatsStroke.Color = Theme.Stroke
+        StatsStroke.Transparency = 0.8
+        StatsStroke.Thickness = 1.5 * ScaleFactor
+        StatsStroke.Parent = StatsFrame
+        
+        local StatsHeader = Instance.new("Frame")
+        StatsHeader.Size = UDim2.new(1, 0, 0, 30 * ScaleFactor)
+        StatsHeader.BackgroundColor3 = Theme.Tab
+        StatsHeader.Parent = StatsFrame
+        
+        Instance.new("UICorner", StatsHeader).CornerRadius = UDim.new(0, 8, 0, 0)
+        
+        local StatsTitle = Instance.new("TextLabel")
+        StatsTitle.Size = UDim2.new(1, -20 * ScaleFactor, 1, 0)
+        StatsTitle.Position = UDim2.new(0, 10 * ScaleFactor, 0, 0)
+        StatsTitle.BackgroundTransparency = 1
+        StatsTitle.Text = "Stats"
+        StatsTitle.TextColor3 = Theme.Text
+        StatsTitle.Font = Enum.Font.GothamBold
+        StatsTitle.TextSize = 12 * ScaleFactor
+        StatsTitle.TextXAlignment = Enum.TextXAlignment.Left
+        StatsTitle.Parent = StatsHeader
+        
+        local StatsContent = Instance.new("Frame")
+        StatsContent.Size = UDim2.new(1, 0, 1, -30 * ScaleFactor)
+        StatsContent.Position = UDim2.new(0, 0, 0, 30 * ScaleFactor)
+        StatsContent.BackgroundTransparency = 1
+        StatsContent.Parent = StatsFrame
+        
+        local StatsList = Instance.new("UIListLayout")
+        StatsList.Padding = UDim.new(0, 5 * ScaleFactor)
+        StatsList.Parent = StatsContent
+        
+        local Stats = {}
+        
+        local FPSLabel = Instance.new("TextLabel")
+        FPSLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+        FPSLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 10 * ScaleFactor)
+        FPSLabel.BackgroundTransparency = 1
+        FPSLabel.Text = "FPS: 0"
+        FPSLabel.TextColor3 = Theme.Text
+        FPSLabel.Font = Enum.Font.Gotham
+        FPSLabel.TextSize = 10 * ScaleFactor
+        FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+        FPSLabel.Parent = StatsContent
+        
+        local PingLabel = Instance.new("TextLabel")
+        PingLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+        PingLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
+        PingLabel.BackgroundTransparency = 1
+        PingLabel.Text = "Ping: 0ms"
+        PingLabel.TextColor3 = Theme.Text
+        PingLabel.Font = Enum.Font.Gotham
+        PingLabel.TextSize = 10 * ScaleFactor
+        PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+        PingLabel.Parent = StatsContent
+        
+        local MemoryLabel = Instance.new("TextLabel")
+        MemoryLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+        MemoryLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 60 * ScaleFactor)
+        MemoryLabel.BackgroundTransparency = 1
+        MemoryLabel.Text = "Memory: 0MB"
+        MemoryLabel.TextColor3 = Theme.Text
+        MemoryLabel.Font = Enum.Font.Gotham
+        MemoryLabel.TextSize = 10 * ScaleFactor
+        MemoryLabel.TextXAlignment = Enum.TextXAlignment.Left
+        MemoryLabel.Parent = StatsContent
+        
+        local LastTime = tick()
+        local FrameCount = 0
+        local FPS = 0
+        
+        RunService.RenderStepped:Connect(function()
+            FrameCount = FrameCount + 1
+            local CurrentTime = tick()
+            if CurrentTime - LastTime >= 1 then
+                FPS = math.floor(FrameCount / (CurrentTime - LastTime))
+                FrameCount = 0
+                LastTime = CurrentTime
+                FPSLabel.Text = "FPS: " .. FPS
+            end
+            
+            if game:GetService("Stats") then
+                local Stats = game:GetService("Stats")
+                local Ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+                PingLabel.Text = "Ping: " .. Ping .. "ms"
+                
+                local Memory = math.floor(Stats:GetTotalMemoryUsageMb())
+                MemoryLabel.Text = "Memory: " .. Memory .. "MB"
+            end
+        end)
+        
+        function Stats:AddStat(Name, ValueFunction)
+            local StatLabel = Instance.new("TextLabel")
+            StatLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+            StatLabel.BackgroundTransparency = 1
+            StatLabel.Text = Name .. ": "
+            StatLabel.TextColor3 = Theme.Text
+            StatLabel.Font = Enum.Font.Gotham
+            StatLabel.TextSize = 10 * ScaleFactor
+            StatLabel.TextXAlignment = Enum.TextXAlignment.Left
+            StatLabel.Parent = StatsContent
+            
+            task.spawn(function()
+                while StatLabel and StatLabel.Parent do
+                    StatLabel.Text = Name .. ": " .. ValueFunction()
+                    task.wait(0.5)
+                end
+            end)
+        end
+        
+        function Stats:Destroy()
+            StatsGui:Destroy()
+        end
+        
+        table.insert(Library.StatsPanels, Stats)
+        return Stats
+    end
+    
     function Window:ToggleVisibility()
         Main.Visible = not Main.Visible
     end
@@ -595,6 +822,97 @@ function Library:CreateWindow(Title, Options)
     UpdateSize()
     table.insert(Library.Windows, Window)
     return Window
+end
+
+function Library:CreateNotification(Title, Message, Type, Duration)
+    local NotificationGui = Instance.new("ScreenGui")
+    NotificationGui.Name = "Notification_" .. HttpService:GenerateGUID(false)
+    NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    NotificationGui.Parent = CoreGui
+    
+    local ScaleFactor = DeviceScale
+    local Theme = Themes.Dark
+    
+    local Notification = Instance.new("Frame")
+    Notification.Size = UDim2.new(0, 300 * ScaleFactor, 0, 80 * ScaleFactor)
+    Notification.BackgroundColor3 = Theme.Notification
+    Notification.Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + (#Library.Notifications * 90 * ScaleFactor))
+    Notification.Parent = NotificationGui
+    
+    Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
+    
+    local NotificationStroke = Instance.new("UIStroke")
+    NotificationStroke.Color = Type == "Success" and Theme.NotificationSuccess or 
+                              Type == "Error" and Theme.NotificationError or
+                              Type == "Warning" and Theme.NotificationWarning or
+                              Theme.Stroke
+    NotificationStroke.Thickness = 1.5 * ScaleFactor
+    NotificationStroke.Parent = Notification
+    
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 25 * ScaleFactor)
+    TitleLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 8 * ScaleFactor)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = Title
+    TitleLabel.TextColor3 = Theme.Text
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextSize = 12 * ScaleFactor
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = Notification
+    
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Size = UDim2.new(1, -20 * ScaleFactor, 1, -40 * ScaleFactor)
+    MessageLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
+    MessageLabel.BackgroundTransparency = 1
+    MessageLabel.Text = Message
+    MessageLabel.TextColor3 = Theme.TextMuted
+    MessageLabel.Font = Enum.Font.Gotham
+    MessageLabel.TextSize = 10 * ScaleFactor
+    MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MessageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    MessageLabel.TextWrapped = true
+    MessageLabel.Parent = Notification
+    
+    Notification.Visible = false
+    
+    table.insert(Library.Notifications, NotificationGui)
+    
+    task.spawn(function()
+        for i = #Library.Notifications, 1, -1 do
+            local Notif = Library.Notifications[i]
+            if Notif and Notif.Parent then
+                local Frame = Notif:FindFirstChildWhichIsA("Frame")
+                if Frame then
+                    TweenService:Create(Frame, TweenInfo.new(0.3), {
+                        Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + ((i-1) * 90 * ScaleFactor))
+                    }):Play()
+                end
+            end
+        end
+        
+        task.wait(0.1)
+        Notification.Visible = true
+        Notification.Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+        TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -320 * ScaleFactor, 0, Notification.Position.Y.Offset)
+        }):Play()
+        
+        task.wait(Duration or 5)
+        
+        TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+        }):Play()
+        
+        task.wait(0.3)
+        NotificationGui:Destroy()
+        
+        for i, Notif in pairs(Library.Notifications) do
+            if Notif == NotificationGui then
+                table.remove(Library.Notifications, i)
+                break
+            end
+        end
+    end)
 end
 
 function Library:GetAllWindows()
