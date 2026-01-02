@@ -13,6 +13,7 @@ function Library:CreateWindow(Title)
     local CurrentPage = nil
     local Elements = {}
     local Mode = "TALL"
+    local OriginalHeight = 350
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StrikerUI_" .. HttpService:GenerateGUID(false)
@@ -102,9 +103,11 @@ function Library:CreateWindow(Title)
     
     local function UpdateSize()
         if Mode == "TALL" then
-            Main.Size = UDim2.new(0, 230, 0, 75 + (CurrentPage and CurrentPage.CanvasSize.Y.Offset + 20 or 200))
-            Main.Position = UDim2.new(0.5, -115, 0.5, -75 - (CurrentPage and CurrentPage.CanvasSize.Y.Offset + 20 or 200)/2)
-            Header.Position = UDim2.new(0, 0, 0, 0)
+            local contentHeight = CurrentPage and (CurrentPage.CanvasSize.Y.Offset + 20) or 200
+            local newHeight = 75 + contentHeight
+            OriginalHeight = newHeight
+            
+            Main.Size = UDim2.new(0, 230, 0, newHeight)
             Container.Size = UDim2.new(1, 0, 1, -40)
             Container.Position = UDim2.new(0, 0, 0, 40)
             
@@ -116,8 +119,7 @@ function Library:CreateWindow(Title)
             Content.Position = UDim2.new(0, 0, 0, 33)
         else
             Main.Size = UDim2.new(0, 400, 0, 350)
-            Main.Position = UDim2.new(0.5, -200, 0.5, -175)
-            Header.Position = UDim2.new(0, 0, 0, 0)
+            OriginalHeight = 350
             Container.Size = UDim2.new(1, 0, 1, -40)
             Container.Position = UDim2.new(0, 0, 0, 40)
             
@@ -140,6 +142,8 @@ function Library:CreateWindow(Title)
         end
     end
     
+    Main.Position = UDim2.new(0.5, -115, 0.5, -175)
+    
     CloseButton.MouseButton1Click:Connect(function()
         TweenService:Create(Main, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
@@ -149,15 +153,15 @@ function Library:CreateWindow(Title)
     
     MinButton.MouseButton1Click:Connect(function()
         IsMinimized = not IsMinimized
-        local TargetHeight = IsMinimized and 40 or Main.Size.Y.Offset
         
         if IsMinimized then
             Container.Visible = false
+            TweenService:Create(Main, TweenInfo.new(0.3), {Size = UDim2.new(0, Main.Size.X.Offset, 0, 40)}):Play()
         else
             Container.Visible = true
+            UpdateSize()
+            TweenService:Create(Main, TweenInfo.new(0.3), {Size = UDim2.new(0, Main.Size.X.Offset, 0, OriginalHeight)}):Play()
         end
-        
-        TweenService:Create(Main, TweenInfo.new(0.3), {Size = UDim2.new(0, Main.Size.X.Offset, 0, TargetHeight)}):Play()
     end)
     
     local Keybind = Enum.KeyCode.RightShift
@@ -172,8 +176,13 @@ function Library:CreateWindow(Title)
     end
     
     function Window:SetMode(NewMode)
+        local oldMode = Mode
         Mode = NewMode:upper()
-        UpdateSize()
+        
+        if oldMode ~= Mode then
+            UpdateSize()
+            Main.Position = UDim2.new(0.5, -Main.Size.X.Offset/2, 0.5, -Main.Size.Y.Offset/2)
+        end
     end
     
     function Window:CreateTab(Name)
