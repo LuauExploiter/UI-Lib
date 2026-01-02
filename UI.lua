@@ -25,6 +25,7 @@ function Library:CreateWindow(Title)
     Main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
     Main.BorderSizePixel = 0
     Main.Active = true
+    Main.Draggable = true
     Main.ClipsDescendants = true
     Main.Parent = ScreenGui
     
@@ -139,8 +140,6 @@ function Library:CreateWindow(Title)
         end
     end
     
-    Main.Draggable = true
-    
     CloseButton.MouseButton1Click:Connect(function()
         TweenService:Create(Main, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
         TweenService:Create(Main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
@@ -153,17 +152,12 @@ function Library:CreateWindow(Title)
         local TargetHeight = IsMinimized and 40 or Main.Size.Y.Offset
         
         if IsMinimized then
-            TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
-            TweenService:Create(Container, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-            task.wait(0.1)
             Container.Visible = false
         else
             Container.Visible = true
-            TweenService:Create(Container, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 1, -40)}):Play()
-            TweenService:Create(Container, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
         end
         
-        TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, Main.Size.X.Offset, 0, TargetHeight)}):Play()
+        TweenService:Create(Main, TweenInfo.new(0.3), {Size = UDim2.new(0, Main.Size.X.Offset, 0, TargetHeight)}):Play()
     end)
     
     local Keybind = Enum.KeyCode.RightShift
@@ -198,7 +192,6 @@ function Library:CreateWindow(Title)
         Page.BackgroundTransparency = 1
         Page.Visible = false
         Page.ScrollBarThickness = 0
-        Page.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
         Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         Page.Parent = Content
         
@@ -261,17 +254,6 @@ function Library:CreateWindow(Title)
                 ToggleButton.Text = Text .. ": " .. (State and "ON" or "OFF")
                 local TargetColor = State and Color3.fromRGB(65, 255, 65) or Color3.fromRGB(255, 65, 65)
                 TweenService:Create(ToggleButton, TweenInfo.new(0.2), {TextColor3 = TargetColor}):Play()
-                
-                local highlight = Instance.new("Frame")
-                highlight.Size = UDim2.new(1, 0, 1, 0)
-                highlight.BackgroundColor3 = TargetColor
-                highlight.BackgroundTransparency = 0.8
-                highlight.ZIndex = 5
-                highlight.Parent = ToggleButton
-                
-                TweenService:Create(highlight, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
-                game:GetService("Debris"):AddItem(highlight, 0.3)
-                
                 Callback(State)
             end)
             
@@ -314,23 +296,9 @@ function Library:CreateWindow(Title)
             
             Button.MouseButton1Click:Connect(function()
                 local OriginalColor = Button.BackgroundColor3
-                TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 50, 50), Size = UDim2.new(0, (Mode == "TALL" and 195 or 245), 0, 30)}):Play()
+                TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(50, 50, 50)}):Play()
                 task.wait(0.1)
-                TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = OriginalColor, Size = UDim2.new(0, (Mode == "TALL" and 200 or 250), 0, 32)}):Play()
-                
-                local ripple = Instance.new("Frame")
-                ripple.Size = UDim2.new(0, 0, 0, 0)
-                ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
-                ripple.AnchorPoint = Vector2.new(0.5, 0.5)
-                ripple.BackgroundColor3 = Color3.new(1, 1, 1)
-                ripple.BackgroundTransparency = 0.8
-                ripple.ZIndex = 5
-                Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
-                ripple.Parent = Button
-                
-                TweenService:Create(ripple, TweenInfo.new(0.4), {Size = UDim2.new(1, 10, 1, 10), BackgroundTransparency = 1}):Play()
-                game:GetService("Debris"):AddItem(ripple, 0.4)
-                
+                TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = OriginalColor}):Play()
                 Callback()
             end)
         end
@@ -364,12 +332,7 @@ function Library:CreateWindow(Title)
             
             Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 4)
             
-            TextBox.Focused:Connect(function()
-                TweenService:Create(TextBox, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
-            end)
-            
             TextBox.FocusLost:Connect(function(EnterPressed)
-                TweenService:Create(TextBox, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
                 if EnterPressed then
                     Callback(TextBox.Text)
                 end
@@ -515,9 +478,6 @@ function Library:CreateWindow(Title)
     end
     
     function Window:Destroy()
-        TweenService:Create(Main, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
-        TweenService:Create(Main, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-        task.wait(0.2)
         ScreenGui:Destroy()
     end
     
