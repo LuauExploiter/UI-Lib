@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local StatsService = game:GetService("Stats")
 
 local Library = {}
 Library.Windows = {}
@@ -29,7 +30,8 @@ local Themes = {
         Notification = Color3.fromRGB(25, 25, 25),
         NotificationSuccess = Color3.fromRGB(20, 120, 20),
         NotificationError = Color3.fromRGB(120, 20, 20),
-        NotificationWarning = Color3.fromRGB(120, 80, 20)
+        NotificationWarning = Color3.fromRGB(120, 80, 20),
+        StatsPanel = Color3.fromRGB(15, 15, 15)
     }
 }
 
@@ -57,6 +59,7 @@ function Library:CreateWindow(Title, Options)
     local RequiredKey = WindowSettings.RequiredKey or ""
     local Theme = Themes[ThemeName] or Themes.Dark
     local ScaleFactor = WindowSettings.Scale or DeviceScale
+    local ForcePosition = WindowSettings.ForcePosition
     
     local Window = {}
     local IsMinimized = false
@@ -174,7 +177,25 @@ function Library:CreateWindow(Title, Options)
         Content.Position = UDim2.new(0, 0, 0, 85 * ScaleFactor)
     end
     
-    Main.Position = UDim2.new(0.5, -125 * ScaleFactor, 0.5, -OriginalHeight/2)
+    if ForcePosition then
+        if ForcePosition == "TopLeft" then
+            Main.Position = UDim2.new(0, 20, 0, 20)
+        elseif ForcePosition == "TopRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 0, 20)
+        elseif ForcePosition == "MiddleLeft" then
+            Main.Position = UDim2.new(0, 20, 0.5, -OriginalHeight/2)
+        elseif ForcePosition == "MiddleRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 0.5, -OriginalHeight/2)
+        elseif ForcePosition == "BottomLeft" then
+            Main.Position = UDim2.new(0, 20, 1, -OriginalHeight - 20)
+        elseif ForcePosition == "BottomRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 1, -OriginalHeight - 20)
+        else
+            Main.Position = UDim2.new(0.5, -125 * ScaleFactor, 0.5, -OriginalHeight/2)
+        end
+    else
+        Main.Position = UDim2.new(0.5, -125 * ScaleFactor, 0.5, -OriginalHeight/2)
+    end
     
     CloseButton.MouseButton1Click:Connect(function()
         local Tween = TweenService:Create(Main, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -228,6 +249,26 @@ function Library:CreateWindow(Title, Options)
     
     function Window:SetKeybind(NewKeybind)
         Keybind = NewKeybind
+    end
+    
+    function Window:SetPosition(NewPosition)
+        if NewPosition == "TopLeft" then
+            Main.Position = UDim2.new(0, 20, 0, 20)
+        elseif NewPosition == "TopRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 0, 20)
+        elseif NewPosition == "MiddleLeft" then
+            Main.Position = UDim2.new(0, 20, 0.5, -OriginalHeight/2)
+        elseif NewPosition == "MiddleRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 0.5, -OriginalHeight/2)
+        elseif NewPosition == "BottomLeft" then
+            Main.Position = UDim2.new(0, 20, 1, -OriginalHeight - 20)
+        elseif NewPosition == "BottomRight" then
+            Main.Position = UDim2.new(1, -270 * ScaleFactor, 1, -OriginalHeight - 20)
+        elseif NewPosition == "Center" then
+            Main.Position = UDim2.new(0.5, -125 * ScaleFactor, 0.5, -OriginalHeight/2)
+        else
+            Main.Position = NewPosition
+        end
     end
     
     function Window:CreateTab(Name)
@@ -567,7 +608,7 @@ function Library:CreateWindow(Title, Options)
     
     function Window:CreateNotification(Title, Message, Type, Duration)
         Type = Type or "Info"
-        Duration = Duration or 5
+        Duration = Duration or 3
         
         local NotificationGui = Instance.new("ScreenGui")
         NotificationGui.Name = "Notification_" .. HttpService:GenerateGUID(false)
@@ -575,9 +616,9 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.Parent = CoreGui
         
         local Notification = Instance.new("Frame")
-        Notification.Size = UDim2.new(0, 300 * ScaleFactor, 0, 80 * ScaleFactor)
+        Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
         Notification.BackgroundColor3 = Theme.Notification
-        Notification.Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + (#Library.Notifications * 90 * ScaleFactor))
+        Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + (#Library.Notifications * 70 * ScaleFactor))
         Notification.Parent = NotificationGui
         
         Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -591,24 +632,24 @@ function Library:CreateWindow(Title, Options)
         NotificationStroke.Parent = Notification
         
         local TitleLabel = Instance.new("TextLabel")
-        TitleLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 25 * ScaleFactor)
-        TitleLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 8 * ScaleFactor)
+        TitleLabel.Size = UDim2.new(1, -15 * ScaleFactor, 0, 20 * ScaleFactor)
+        TitleLabel.Position = UDim2.new(0, 8 * ScaleFactor, 0, 5 * ScaleFactor)
         TitleLabel.BackgroundTransparency = 1
         TitleLabel.Text = Title
         TitleLabel.TextColor3 = Theme.Text
         TitleLabel.Font = Enum.Font.GothamBold
-        TitleLabel.TextSize = 12 * ScaleFactor
+        TitleLabel.TextSize = 11 * ScaleFactor
         TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         TitleLabel.Parent = Notification
         
         local MessageLabel = Instance.new("TextLabel")
-        MessageLabel.Size = UDim2.new(1, -20 * ScaleFactor, 1, -40 * ScaleFactor)
-        MessageLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
+        MessageLabel.Size = UDim2.new(1, -15 * ScaleFactor, 1, -25 * ScaleFactor)
+        MessageLabel.Position = UDim2.new(0, 8 * ScaleFactor, 0, 25 * ScaleFactor)
         MessageLabel.BackgroundTransparency = 1
         MessageLabel.Text = Message
         MessageLabel.TextColor3 = Theme.TextMuted
         MessageLabel.Font = Enum.Font.Gotham
-        MessageLabel.TextSize = 10 * ScaleFactor
+        MessageLabel.TextSize = 9 * ScaleFactor
         MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
         MessageLabel.TextYAlignment = Enum.TextYAlignment.Top
         MessageLabel.TextWrapped = true
@@ -624,8 +665,8 @@ function Library:CreateWindow(Title, Options)
                 if Notif and Notif.Parent then
                     local Frame = Notif:FindFirstChildWhichIsA("Frame")
                     if Frame then
-                        TweenService:Create(Frame, TweenInfo.new(0.3), {
-                            Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + ((i-1) * 90 * ScaleFactor))
+                        TweenService:Create(Frame, TweenInfo.new(0.2), {
+                            Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + ((i-1) * 70 * ScaleFactor))
                         }):Play()
                     end
                 end
@@ -633,15 +674,15 @@ function Library:CreateWindow(Title, Options)
             
             task.wait(0.1)
             Notification.Visible = true
-            Notification.Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
             TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Position = UDim2.new(1, -320 * ScaleFactor, 0, Notification.Position.Y.Offset)
+                Position = UDim2.new(1, -270 * ScaleFactor, 0, Notification.Position.Y.Offset)
             }):Play()
             
             task.wait(Duration)
             
             TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+                Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
             }):Play()
             
             task.wait(0.3)
@@ -656,7 +697,14 @@ function Library:CreateWindow(Title, Options)
         end)
     end
     
-    function Window:CreateStatsPanel(Position, Size)
+    function Window:CreateStatsPanel(Options)
+        local PanelSettings = Options or {}
+        local Position = PanelSettings.Position or "TopRight"
+        local Size = PanelSettings.Size or UDim2.new(0, 180 * ScaleFactor, 0, 140 * ScaleFactor)
+        local StatsList = PanelSettings.Stats or {}
+        local RefreshRate = PanelSettings.RefreshRate or 1
+        local Title = PanelSettings.Title or "Stats"
+        
         local Positions = {
             TopLeft = UDim2.new(0, 20, 0, 20),
             TopRight = UDim2.new(1, -Size.X.Offset - 20, 0, 20),
@@ -675,7 +723,7 @@ function Library:CreateWindow(Title, Options)
         local StatsFrame = Instance.new("Frame")
         StatsFrame.Size = Size
         StatsFrame.Position = Positions[Position] or Positions["TopRight"]
-        StatsFrame.BackgroundColor3 = Theme.Background
+        StatsFrame.BackgroundColor3 = Theme.StatsPanel
         StatsFrame.BorderSizePixel = 0
         StatsFrame.ClipsDescendants = true
         StatsFrame.Parent = StatsGui
@@ -689,7 +737,7 @@ function Library:CreateWindow(Title, Options)
         StatsStroke.Parent = StatsFrame
         
         local StatsHeader = Instance.new("Frame")
-        StatsHeader.Size = UDim2.new(1, 0, 0, 30 * ScaleFactor)
+        StatsHeader.Size = UDim2.new(1, 0, 0, 25 * ScaleFactor)
         StatsHeader.BackgroundColor3 = Theme.Tab
         StatsHeader.Parent = StatsFrame
         
@@ -699,61 +747,104 @@ function Library:CreateWindow(Title, Options)
         StatsTitle.Size = UDim2.new(1, -20 * ScaleFactor, 1, 0)
         StatsTitle.Position = UDim2.new(0, 10 * ScaleFactor, 0, 0)
         StatsTitle.BackgroundTransparency = 1
-        StatsTitle.Text = "Stats"
+        StatsTitle.Text = Title
         StatsTitle.TextColor3 = Theme.Text
         StatsTitle.Font = Enum.Font.GothamBold
-        StatsTitle.TextSize = 12 * ScaleFactor
+        StatsTitle.TextSize = 11 * ScaleFactor
         StatsTitle.TextXAlignment = Enum.TextXAlignment.Left
         StatsTitle.Parent = StatsHeader
         
-        local StatsContent = Instance.new("Frame")
-        StatsContent.Size = UDim2.new(1, 0, 1, -30 * ScaleFactor)
-        StatsContent.Position = UDim2.new(0, 0, 0, 30 * ScaleFactor)
+        local RefreshButton = Instance.new("TextButton")
+        RefreshButton.Size = UDim2.new(0, 20 * ScaleFactor, 0, 20 * ScaleFactor)
+        RefreshButton.Position = UDim2.new(1, -25 * ScaleFactor, 0.5, -10 * ScaleFactor)
+        RefreshButton.BackgroundColor3 = Theme.Button
+        RefreshButton.Text = "⟳"
+        RefreshButton.TextColor3 = Theme.Text
+        RefreshButton.Font = Enum.Font.GothamBold
+        RefreshButton.TextSize = 10 * ScaleFactor
+        RefreshButton.Parent = StatsHeader
+        
+        Instance.new("UICorner", RefreshButton).CornerRadius = UDim.new(0, 4)
+        
+        local StatsContent = Instance.new("ScrollingFrame")
+        StatsContent.Size = UDim2.new(1, 0, 1, -25 * ScaleFactor)
+        StatsContent.Position = UDim2.new(0, 0, 0, 25 * ScaleFactor)
         StatsContent.BackgroundTransparency = 1
+        StatsContent.ScrollBarThickness = 2 * ScaleFactor
+        StatsContent.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+        StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
         StatsContent.Parent = StatsFrame
         
-        local StatsList = Instance.new("UIListLayout")
-        StatsList.Padding = UDim.new(0, 5 * ScaleFactor)
-        StatsList.Parent = StatsContent
+        local StatsListLayout = Instance.new("UIListLayout")
+        StatsListLayout.Padding = UDim.new(0, 5 * ScaleFactor)
+        StatsListLayout.Parent = StatsContent
         
-        local Stats = {}
+        StatsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            StatsContent.CanvasSize = UDim2.new(0, 0, 0, StatsListLayout.AbsoluteContentSize.Y + 10)
+        end)
         
-        local FPSLabel = Instance.new("TextLabel")
-        FPSLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
-        FPSLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 10 * ScaleFactor)
-        FPSLabel.BackgroundTransparency = 1
-        FPSLabel.Text = "FPS: 0"
-        FPSLabel.TextColor3 = Theme.Text
-        FPSLabel.Font = Enum.Font.Gotham
-        FPSLabel.TextSize = 10 * ScaleFactor
-        FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
-        FPSLabel.Parent = StatsContent
+        local StatLabels = {}
+        local StatFunctions = {}
         
-        local PingLabel = Instance.new("TextLabel")
-        PingLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
-        PingLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
-        PingLabel.BackgroundTransparency = 1
-        PingLabel.Text = "Ping: 0ms"
-        PingLabel.TextColor3 = Theme.Text
-        PingLabel.Font = Enum.Font.Gotham
-        PingLabel.TextSize = 10 * ScaleFactor
-        PingLabel.TextXAlignment = Enum.TextXAlignment.Left
-        PingLabel.Parent = StatsContent
-        
-        local MemoryLabel = Instance.new("TextLabel")
-        MemoryLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
-        MemoryLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 60 * ScaleFactor)
-        MemoryLabel.BackgroundTransparency = 1
-        MemoryLabel.Text = "Memory: 0MB"
-        MemoryLabel.TextColor3 = Theme.Text
-        MemoryLabel.Font = Enum.Font.Gotham
-        MemoryLabel.TextSize = 10 * ScaleFactor
-        MemoryLabel.TextXAlignment = Enum.TextXAlignment.Left
-        MemoryLabel.Parent = StatsContent
+        local function RefreshStats()
+            for StatName, Label in pairs(StatLabels) do
+                if StatFunctions[StatName] then
+                    local Success, Result = pcall(StatFunctions[StatName])
+                    if Success then
+                        Label.Text = StatName .. ": " .. Result
+                    else
+                        Label.Text = StatName .. ": Error"
+                    end
+                end
+            end
+        end
         
         local LastTime = tick()
         local FrameCount = 0
         local FPS = 0
+        
+        local DefaultStats = {
+            FPS = function()
+                return FPS
+            end,
+            Ping = function()
+                if game:GetService("Stats") then
+                    return math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+                end
+                return 0
+            end,
+            Memory = function()
+                if game:GetService("Stats") then
+                    return math.floor(game:GetService("Stats"):GetTotalMemoryUsageMb())
+                end
+                return 0
+            end,
+            Players = function()
+                return #Players:GetPlayers()
+            end,
+            ServerTime = function()
+                return math.floor(game:GetService("Workspace").DistributedGameTime/60) .. "m"
+            end
+        }
+        
+        if #StatsList == 0 then
+            StatsList = {"FPS", "Ping", "Memory"}
+        end
+        
+        for _, StatName in pairs(StatsList) do
+            local StatLabel = Instance.new("TextLabel")
+            StatLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+            StatLabel.BackgroundTransparency = 1
+            StatLabel.Text = StatName .. ": "
+            StatLabel.TextColor3 = Theme.Text
+            StatLabel.Font = Enum.Font.Gotham
+            StatLabel.TextSize = 10 * ScaleFactor
+            StatLabel.TextXAlignment = Enum.TextXAlignment.Left
+            StatLabel.Parent = StatsContent
+            
+            StatLabels[StatName] = StatLabel
+            StatFunctions[StatName] = DefaultStats[StatName]
+        end
         
         RunService.RenderStepped:Connect(function()
             FrameCount = FrameCount + 1
@@ -762,20 +853,26 @@ function Library:CreateWindow(Title, Options)
                 FPS = math.floor(FrameCount / (CurrentTime - LastTime))
                 FrameCount = 0
                 LastTime = CurrentTime
-                FPSLabel.Text = "FPS: " .. FPS
-            end
-            
-            if game:GetService("Stats") then
-                local Stats = game:GetService("Stats")
-                local Ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-                PingLabel.Text = "Ping: " .. Ping .. "ms"
-                
-                local Memory = math.floor(Stats:GetTotalMemoryUsageMb())
-                MemoryLabel.Text = "Memory: " .. Memory .. "MB"
             end
         end)
         
-        function Stats:AddStat(Name, ValueFunction)
+        task.spawn(function()
+            while StatsGui and StatsGui.Parent do
+                RefreshStats()
+                task.wait(RefreshRate)
+            end
+        end)
+        
+        RefreshButton.MouseButton1Click:Connect(function()
+            RefreshStats()
+            TweenService:Create(RefreshButton, TweenInfo.new(0.2), {Rotation = 360}):Play()
+            task.wait(0.2)
+            RefreshButton.Rotation = 0
+        end)
+        
+        local StatsPanelObject = {}
+        
+        function StatsPanelObject:AddStat(Name, Function)
             local StatLabel = Instance.new("TextLabel")
             StatLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
             StatLabel.BackgroundTransparency = 1
@@ -786,20 +883,36 @@ function Library:CreateWindow(Title, Options)
             StatLabel.TextXAlignment = Enum.TextXAlignment.Left
             StatLabel.Parent = StatsContent
             
-            task.spawn(function()
-                while StatLabel and StatLabel.Parent do
-                    StatLabel.Text = Name .. ": " .. ValueFunction()
-                    task.wait(0.5)
-                end
-            end)
+            StatLabels[Name] = StatLabel
+            StatFunctions[Name] = Function
         end
         
-        function Stats:Destroy()
+        function StatsPanelObject:RemoveStat(Name)
+            if StatLabels[Name] then
+                StatLabels[Name]:Destroy()
+                StatLabels[Name] = nil
+                StatFunctions[Name] = nil
+            end
+        end
+        
+        function StatsPanelObject:SetPosition(NewPosition)
+            StatsFrame.Position = Positions[NewPosition] or Positions["TopRight"]
+        end
+        
+        function StatsPanelObject:SetTitle(NewTitle)
+            StatsTitle.Text = NewTitle
+        end
+        
+        function StatsPanelObject:Refresh()
+            RefreshStats()
+        end
+        
+        function StatsPanelObject:Destroy()
             StatsGui:Destroy()
         end
         
-        table.insert(Library.StatsPanels, Stats)
-        return Stats
+        table.insert(Library.StatsPanels, StatsPanelObject)
+        return StatsPanelObject
     end
     
     function Window:ToggleVisibility()
@@ -808,15 +921,6 @@ function Library:CreateWindow(Title, Options)
     
     function Window:Destroy()
         ScreenGui:Destroy()
-    end
-    
-    function Window:SetPosition(Position)
-        Main.Position = Position
-    end
-    
-    function Window:SetSize(Size)
-        Main.Size = Size
-        UpdateSize()
     end
     
     UpdateSize()
@@ -834,9 +938,9 @@ function Library:CreateNotification(Title, Message, Type, Duration)
     local Theme = Themes.Dark
     
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(0, 300 * ScaleFactor, 0, 80 * ScaleFactor)
+    Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
     Notification.BackgroundColor3 = Theme.Notification
-    Notification.Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + (#Library.Notifications * 90 * ScaleFactor))
+    Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + (#Library.Notifications * 70 * ScaleFactor))
     Notification.Parent = NotificationGui
     
     Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -850,24 +954,24 @@ function Library:CreateNotification(Title, Message, Type, Duration)
     NotificationStroke.Parent = Notification
     
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 25 * ScaleFactor)
-    TitleLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 8 * ScaleFactor)
+    TitleLabel.Size = UDim2.new(1, -15 * ScaleFactor, 0, 20 * ScaleFactor)
+    TitleLabel.Position = UDim2.new(0, 8 * ScaleFactor, 0, 5 * ScaleFactor)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Text = Title
     TitleLabel.TextColor3 = Theme.Text
     TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextSize = 12 * ScaleFactor
+    TitleLabel.TextSize = 11 * ScaleFactor
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.Parent = Notification
     
     local MessageLabel = Instance.new("TextLabel")
-    MessageLabel.Size = UDim2.new(1, -20 * ScaleFactor, 1, -40 * ScaleFactor)
-    MessageLabel.Position = UDim2.new(0, 10 * ScaleFactor, 0, 35 * ScaleFactor)
+    MessageLabel.Size = UDim2.new(1, -15 * ScaleFactor, 1, -25 * ScaleFactor)
+    MessageLabel.Position = UDim2.new(0, 8 * ScaleFactor, 0, 25 * ScaleFactor)
     MessageLabel.BackgroundTransparency = 1
     MessageLabel.Text = Message
     MessageLabel.TextColor3 = Theme.TextMuted
     MessageLabel.Font = Enum.Font.Gotham
-    MessageLabel.TextSize = 10 * ScaleFactor
+    MessageLabel.TextSize = 9 * ScaleFactor
     MessageLabel.TextXAlignment = Enum.TextXAlignment.Left
     MessageLabel.TextYAlignment = Enum.TextYAlignment.Top
     MessageLabel.TextWrapped = true
@@ -883,8 +987,8 @@ function Library:CreateNotification(Title, Message, Type, Duration)
             if Notif and Notif.Parent then
                 local Frame = Notif:FindFirstChildWhichIsA("Frame")
                 if Frame then
-                    TweenService:Create(Frame, TweenInfo.new(0.3), {
-                        Position = UDim2.new(1, -320 * ScaleFactor, 0, 20 * ScaleFactor + ((i-1) * 90 * ScaleFactor))
+                    TweenService:Create(Frame, TweenInfo.new(0.2), {
+                        Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + ((i-1) * 70 * ScaleFactor))
                     }):Play()
                 end
             end
@@ -892,15 +996,15 @@ function Library:CreateNotification(Title, Message, Type, Duration)
         
         task.wait(0.1)
         Notification.Visible = true
-        Notification.Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+        Notification.Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
         TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = UDim2.new(1, -320 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Position = UDim2.new(1, -270 * ScaleFactor, 0, Notification.Position.Y.Offset)
         }):Play()
         
-        task.wait(Duration or 5)
+        task.wait(Duration or 3)
         
         TweenService:Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(1, -20 * ScaleFactor, 0, Notification.Position.Y.Offset)
+            Position = UDim2.new(1, -10 * ScaleFactor, 0, Notification.Position.Y.Offset)
         }):Play()
         
         task.wait(0.3)
