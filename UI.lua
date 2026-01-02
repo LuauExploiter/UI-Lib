@@ -212,6 +212,7 @@ function Library:CreateWindow(Title, Options)
         IsMinimized = not IsMinimized
         
         if IsMinimized then
+            MinButton.Text = "+"
             TweenService:Create(TabHolder, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
@@ -226,6 +227,7 @@ function Library:CreateWindow(Title, Options)
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, 40 * ScaleFactor)
             }):Play()
         else
+            MinButton.Text = "-"
             TabHolder.Visible = true
             Content.Visible = true
             TweenService:Create(TabHolder, TweenInfo.new(0.2), {
@@ -615,10 +617,30 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotificationGui.Parent = CoreGui
         
+        -- Calculate position to avoid overlap with stats panels
+        local BaseY = ScreenSize.Y * 0.3 -- Start at 30% from top (middle right area)
+        local CurrentY = BaseY
+        
+        -- Check all stats panels to avoid overlap
+        for _, Panel in pairs(Library.StatsPanels) do
+            if Panel.Frame and Panel.Frame.Parent then
+                local Frame = Panel.Frame
+                local FramePos = Frame.AbsolutePosition
+                local FrameSize = Frame.AbsoluteSize
+                
+                -- If stats panel is on right side, adjust notification position
+                if FramePos.X > ScreenSize.X * 0.5 then -- Right side
+                    if FramePos.Y < CurrentY and FramePos.Y + FrameSize.Y > CurrentY then
+                        CurrentY = FramePos.Y + FrameSize.Y + 10 * ScaleFactor
+                    end
+                end
+            end
+        end
+        
         local Notification = Instance.new("Frame")
         Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
         Notification.BackgroundColor3 = Theme.Notification
-        Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + (#Library.Notifications * 70 * ScaleFactor))
+        Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY)
         Notification.Parent = NotificationGui
         
         Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -666,7 +688,7 @@ function Library:CreateWindow(Title, Options)
                     local Frame = Notif:FindFirstChildWhichIsA("Frame")
                     if Frame then
                         TweenService:Create(Frame, TweenInfo.new(0.2), {
-                            Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + ((i-1) * 70 * ScaleFactor))
+                            Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY + ((i-1) * 70 * ScaleFactor))
                         }):Play()
                     end
                 end
@@ -744,7 +766,7 @@ function Library:CreateWindow(Title, Options)
         Instance.new("UICorner", StatsHeader).CornerRadius = UDim.new(0, 8, 0, 0)
         
         local StatsTitle = Instance.new("TextLabel")
-        StatsTitle.Size = UDim2.new(1, -45 * ScaleFactor, 1, 0)
+        StatsTitle.Size = UDim2.new(1, -70 * ScaleFactor, 1, 0)
         StatsTitle.Position = UDim2.new(0, 10 * ScaleFactor, 0, 0)
         StatsTitle.BackgroundTransparency = 1
         StatsTitle.Text = Title
@@ -756,7 +778,7 @@ function Library:CreateWindow(Title, Options)
         
         local RefreshButton = Instance.new("TextButton")
         RefreshButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
-        RefreshButton.Position = UDim2.new(1, -40 * ScaleFactor, 0.5, -9 * ScaleFactor)
+        RefreshButton.Position = UDim2.new(1, -55 * ScaleFactor, 0.5, -9 * ScaleFactor)
         RefreshButton.BackgroundColor3 = Theme.Button
         RefreshButton.Text = "⟳"
         RefreshButton.TextColor3 = Theme.Text
@@ -767,6 +789,20 @@ function Library:CreateWindow(Title, Options)
         local RefreshButtonCorner = Instance.new("UICorner")
         RefreshButtonCorner.CornerRadius = UDim.new(1, 0)
         RefreshButtonCorner.Parent = RefreshButton
+        
+        local MinButton = Instance.new("TextButton")
+        MinButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
+        MinButton.Position = UDim2.new(1, -30 * ScaleFactor, 0.5, -9 * ScaleFactor)
+        MinButton.BackgroundColor3 = Theme.Button
+        MinButton.Text = "-"
+        MinButton.TextColor3 = Theme.Text
+        MinButton.Font = Enum.Font.GothamBold
+        MinButton.TextSize = 12 * ScaleFactor
+        MinButton.Parent = StatsHeader
+        
+        local MinButtonCorner = Instance.new("UICorner")
+        MinButtonCorner.CornerRadius = UDim.new(1, 0)
+        MinButtonCorner.Parent = MinButton
         
         local CloseButton = Instance.new("TextButton")
         CloseButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
@@ -782,10 +818,13 @@ function Library:CreateWindow(Title, Options)
         CloseButtonCorner.CornerRadius = UDim.new(1, 0)
         CloseButtonCorner.Parent = CloseButton
         
-        local StatsContent = Instance.new("Frame")
+        local StatsContent = Instance.new("ScrollingFrame")
         StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 1, -30 * ScaleFactor)
         StatsContent.Position = UDim2.new(0, 5 * ScaleFactor, 0, 30 * ScaleFactor)
         StatsContent.BackgroundTransparency = 1
+        StatsContent.ScrollBarThickness = 2 * ScaleFactor
+        StatsContent.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+        StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
         StatsContent.Parent = StatsFrame
         
         local StatsListLayout = Instance.new("UIListLayout")
@@ -793,15 +832,30 @@ function Library:CreateWindow(Title, Options)
         StatsListLayout.Parent = StatsContent
         
         StatsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            if StatsListLayout.AbsoluteContentSize.Y > StatsContent.AbsoluteSize.Y then
-                StatsContent.CanvasSize = UDim2.new(0, 0, 0, StatsListLayout.AbsoluteContentSize.Y)
-            else
-                StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+            local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
+            StatsContent.CanvasSize = UDim2.new(0, 0, 0, ContentHeight)
+            
+            -- Auto-resize panel if too many stats
+            if ContentHeight > StatsContent.AbsoluteSize.Y and StatsContent.AbsoluteSize.Y < 250 * ScaleFactor then
+                local NewHeight = math.min(ContentHeight + 40 * ScaleFactor, 250 * ScaleFactor)
+                StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
+                StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 1, -30 * ScaleFactor)
+                
+                -- Update position to maintain placement
+                if Position == "TopRight" then
+                    StatsFrame.Position = UDim2.new(1, -StatsFrame.AbsoluteSize.X - 20, 0, 20)
+                elseif Position == "BottomRight" then
+                    StatsFrame.Position = UDim2.new(1, -StatsFrame.AbsoluteSize.X - 20, 1, -StatsFrame.AbsoluteSize.Y - 20)
+                elseif Position == "MiddleRight" then
+                    StatsFrame.Position = UDim2.new(1, -StatsFrame.AbsoluteSize.X - 20, 0.5, -StatsFrame.AbsoluteSize.Y/2)
+                end
             end
         end)
         
         local StatLabels = {}
         local StatFunctions = {}
+        local PanelMinimized = false
+        local PanelOriginalSize = StatsFrame.Size
         
         local function RefreshStats()
             for StatName, Label in pairs(StatLabels) do
@@ -813,6 +867,20 @@ function Library:CreateWindow(Title, Options)
                         Label.Text = StatName .. ": Error"
                     end
                 end
+            end
+        end
+        
+        local function ToggleMinimize()
+            PanelMinimized = not PanelMinimized
+            
+            if PanelMinimized then
+                MinButton.Text = "+"
+                StatsContent.Visible = false
+                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 30 * ScaleFactor)
+            else
+                MinButton.Text = "-"
+                StatsContent.Visible = true
+                StatsFrame.Size = PanelOriginalSize
             end
         end
         
@@ -887,6 +955,10 @@ function Library:CreateWindow(Title, Options)
             RefreshButton.Rotation = 0
         end)
         
+        MinButton.MouseButton1Click:Connect(function()
+            ToggleMinimize()
+        end)
+        
         CloseButton.MouseButton1Click:Connect(function()
             TweenService:Create(StatsFrame, TweenInfo.new(0.2), {
                 Size = UDim2.new(0, 0, 0, 0),
@@ -897,7 +969,10 @@ function Library:CreateWindow(Title, Options)
             StatsGui:Destroy()
         end)
         
-        local StatsPanelObject = {}
+        local StatsPanelObject = {
+            Frame = StatsFrame,
+            Position = Position
+        }
         
         function StatsPanelObject:AddStat(Name, Function)
             local StatLabel = Instance.new("TextLabel")
@@ -923,6 +998,8 @@ function Library:CreateWindow(Title, Options)
         end
         
         function StatsPanelObject:SetPosition(NewPosition)
+            Position = NewPosition
+            StatsPanelObject.Position = NewPosition
             StatsFrame.Position = Positions[NewPosition] or Positions["TopRight"]
         end
         
@@ -932,6 +1009,10 @@ function Library:CreateWindow(Title, Options)
         
         function StatsPanelObject:Refresh()
             RefreshStats()
+        end
+        
+        function StatsPanelObject:ToggleMinimize()
+            ToggleMinimize()
         end
         
         function StatsPanelObject:Destroy()
@@ -964,10 +1045,30 @@ function Library:CreateNotification(Title, Message, Type, Duration)
     local ScaleFactor = DeviceScale
     local Theme = Themes.Dark
     
+    -- Calculate position to avoid overlap with stats panels
+    local BaseY = ScreenSize.Y * 0.3 -- Start at 30% from top (middle right area)
+    local CurrentY = BaseY
+    
+    -- Check all stats panels to avoid overlap
+    for _, Panel in pairs(Library.StatsPanels) do
+        if Panel.Frame and Panel.Frame.Parent then
+            local Frame = Panel.Frame
+            local FramePos = Frame.AbsolutePosition
+            local FrameSize = Frame.AbsoluteSize
+            
+            -- If stats panel is on right side, adjust notification position
+            if FramePos.X > ScreenSize.X * 0.5 then -- Right side
+                if FramePos.Y < CurrentY and FramePos.Y + FrameSize.Y > CurrentY then
+                    CurrentY = FramePos.Y + FrameSize.Y + 10 * ScaleFactor
+                end
+            end
+        end
+    end
+    
     local Notification = Instance.new("Frame")
     Notification.Size = UDim2.new(0, 250 * ScaleFactor, 0, 60 * ScaleFactor)
     Notification.BackgroundColor3 = Theme.Notification
-    Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + (#Library.Notifications * 70 * ScaleFactor))
+    Notification.Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY)
     Notification.Parent = NotificationGui
     
     Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 8)
@@ -1015,7 +1116,7 @@ function Library:CreateNotification(Title, Message, Type, Duration)
                 local Frame = Notif:FindFirstChildWhichIsA("Frame")
                 if Frame then
                     TweenService:Create(Frame, TweenInfo.new(0.2), {
-                        Position = UDim2.new(1, -270 * ScaleFactor, 0, 15 * ScaleFactor + ((i-1) * 70 * ScaleFactor))
+                        Position = UDim2.new(1, -270 * ScaleFactor, 0, CurrentY + ((i-1) * 70 * ScaleFactor))
                     }):Play()
                 end
             end
