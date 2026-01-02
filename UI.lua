@@ -65,7 +65,7 @@ function Library:CreateWindow(Title, Options)
     local IsMinimized = false
     local CurrentPage = nil
     local Elements = {}
-    local OriginalHeight = 320 * ScaleFactor -- Smaller default height
+    local OriginalHeight = 320 * ScaleFactor
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StrikerUI_" .. HttpService:GenerateGUID(false)
@@ -80,7 +80,7 @@ function Library:CreateWindow(Title, Options)
     Main.Active = true
     Main.Draggable = true
     Main.ClipsDescendants = true
-    Main.Size = UDim2.new(0, 240 * ScaleFactor, 0, OriginalHeight) -- Smaller width
+    Main.Size = UDim2.new(0, 240 * ScaleFactor, 0, OriginalHeight)
     Main.Parent = ScreenGui
     
     local MainCorner = Instance.new("UICorner")
@@ -646,11 +646,53 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotificationGui.Parent = CoreGui
         
+        -- Check if there's a stats panel on the right side
+        local statsPanel = nil
+        local statsPanelPosition = nil
+        local statsPanelSize = nil
+        
+        for _, panel in pairs(Library.StatsPanels) do
+            if panel.Frame and panel.Frame.Parent and panel.Frame.Visible then
+                local frameAbsPos = panel.Frame.AbsolutePosition
+                if frameAbsPos.X > ScreenSize.X / 2 then -- Panel is on right side
+                    statsPanel = panel
+                    statsPanelPosition = panel.Frame.AbsolutePosition
+                    statsPanelSize = panel.Frame.AbsoluteSize
+                    break
+                end
+            end
+        end
+        
+        -- Calculate position based on stats panel
+        local startY = 15 * ScaleFactor
+        local notificationHeight = 45 * ScaleFactor
+        local notificationWidth = 200 * ScaleFactor
+        
+        if statsPanel then
+            local panelTop = statsPanelPosition.Y
+            local panelBottom = statsPanelPosition.Y + statsPanelSize.Y
+            
+            -- Check if we should put notification above or below stats panel
+            local spaceAbove = panelTop - 10
+            local spaceBelow = ScreenSize.Y - panelBottom - 10
+            
+            if spaceAbove >= notificationHeight + 20 then
+                -- Put above stats panel
+                startY = 15 * ScaleFactor
+            elseif spaceBelow >= notificationHeight + 20 then
+                -- Put below stats panel
+                startY = panelBottom + 10
+            else
+                -- Not enough space, put at top
+                startY = 15 * ScaleFactor
+            end
+        end
+        
         -- Smaller, simpler notification
         local Notification = Instance.new("Frame")
-        Notification.Size = UDim2.new(0, 200 * ScaleFactor, 0, 45 * ScaleFactor) -- Smaller size
+        Notification.Size = UDim2.new(0, notificationWidth, 0, notificationHeight)
         Notification.BackgroundColor3 = Theme.Notification
-        Notification.Position = UDim2.new(1, -215 * ScaleFactor, 0, 15 * ScaleFactor) -- Top right, smaller
+        Notification.Position = UDim2.new(1, -215 * ScaleFactor, 0, startY)
         Notification.Parent = NotificationGui
         
         Instance.new("UICorner", Notification).CornerRadius = UDim.new(0, 5)
@@ -694,7 +736,12 @@ function Library:CreateWindow(Title, Options)
         task.spawn(function()
             -- Stack notifications
             local notificationCount = #Library.Notifications
-            local offsetY = 15 * ScaleFactor + ((notificationCount - 1) * (50 * ScaleFactor))
+            local offsetY = startY + ((notificationCount - 1) * (50 * ScaleFactor))
+            
+            -- Adjust if notification would go off screen
+            if offsetY + notificationHeight > ScreenSize.Y - 20 then
+                offsetY = math.max(15 * ScaleFactor, ScreenSize.Y - notificationHeight - 20)
+            end
             
             task.wait(0.1)
             Notification.Visible = true
@@ -724,10 +771,10 @@ function Library:CreateWindow(Title, Options)
     function Window:CreateStatsPanel(Options)
         local PanelSettings = Options or {}
         local Position = PanelSettings.Position or "TopRight"
-        local Size = PanelSettings.Size or UDim2.new(0, 170 * ScaleFactor, 0, 120 * ScaleFactor) -- Smaller
+        local Size = PanelSettings.Size or UDim2.new(0, 170 * ScaleFactor, 0, 120 * ScaleFactor)
         local StatsList = PanelSettings.Stats or {}
         local RefreshRate = PanelSettings.RefreshRate or 1
-        local Title = PanelSettings.Title or "Stats Panel" -- Default title
+        local Title = PanelSettings.Title or "Stats Panel"
         
         local Positions = {
             TopLeft = UDim2.new(0, 10, 0, 10),
@@ -752,7 +799,10 @@ function Library:CreateWindow(Title, Options)
         StatsFrame.ClipsDescendants = false
         StatsFrame.Parent = StatsGui
         
-        Instance.new("UICorner", StatsFrame).CornerRadius = UDim.new(0, 6)
+        -- Squircle design (more rounded corners)
+        local StatsCorner = Instance.new("UICorner")
+        StatsCorner.CornerRadius = UDim.new(0, 8) -- More rounded for squircle look
+        StatsCorner.Parent = StatsFrame
         
         local StatsStroke = Instance.new("UIStroke")
         StatsStroke.Color = Theme.Stroke
@@ -765,7 +815,9 @@ function Library:CreateWindow(Title, Options)
         StatsHeader.BackgroundColor3 = Theme.Tab
         StatsHeader.Parent = StatsFrame
         
-        Instance.new("UICorner", StatsHeader).CornerRadius = UDim.new(0, 6, 0, 0)
+        local HeaderCorner = Instance.new("UICorner")
+        HeaderCorner.CornerRadius = UDim.new(0, 8, 0, 0)
+        HeaderCorner.Parent = StatsHeader
         
         local StatsTitle = Instance.new("TextLabel")
         StatsTitle.Size = UDim2.new(1, -50 * ScaleFactor, 1, 0)
@@ -857,6 +909,14 @@ function Library:CreateWindow(Title, Options)
                     local Success, Result = pcall(StatFunctions[StatName])
                     if Success then
                         Label.Text = StatName .. ": " .. Result
+                        -- Add pulsing animation when value updates
+                        TweenService:Create(Label, TweenInfo.new(0.15), {
+                            TextColor3 = Color3.fromRGB(180, 180, 180)
+                        }):Play()
+                        task.wait(0.15)
+                        TweenService:Create(Label, TweenInfo.new(0.15), {
+                            TextColor3 = Theme.Text
+                        }):Play()
                     else
                         Label.Text = StatName .. ": Error"
                     end
@@ -867,7 +927,9 @@ function Library:CreateWindow(Title, Options)
         local function UpdateStatsContentSize()
             local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
             if ContentHeight > 0 then
-                StatsContent.Size = UDim2.new(1, -8 * ScaleFactor, 0, ContentHeight)
+                TweenService:Create(StatsContent, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(1, -8 * ScaleFactor, 0, ContentHeight)
+                }):Play()
             end
         end
         
@@ -905,8 +967,8 @@ function Library:CreateWindow(Title, Options)
             StatsList = {"FPS", "Ping", "Memory"}
         end
         
-        -- Create initial stats
-        for _, StatName in pairs(StatsList) do
+        -- Create initial stats with animation
+        local function CreateStatLabel(StatName)
             local StatLabel = Instance.new("TextLabel")
             StatLabel.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
             StatLabel.BackgroundTransparency = 1
@@ -917,6 +979,20 @@ function Library:CreateWindow(Title, Options)
             StatLabel.TextXAlignment = Enum.TextXAlignment.Left
             StatLabel.Parent = StatsContent
             
+            -- Animation for new stat
+            StatLabel.TextTransparency = 1
+            StatLabel.Position = UDim2.new(0, -20 * ScaleFactor, 0, StatLabel.Position.Y.Offset)
+            
+            TweenService:Create(StatLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                TextTransparency = 0,
+                Position = UDim2.new(0, 0, 0, StatLabel.Position.Y.Offset)
+            }):Play()
+            
+            return StatLabel
+        end
+        
+        for _, StatName in pairs(StatsList) do
+            local StatLabel = CreateStatLabel(StatName)
             StatLabels[StatName] = StatLabel
             StatFunctions[StatName] = DefaultStats[StatName]
         end
@@ -943,26 +1019,53 @@ function Library:CreateWindow(Title, Options)
             
             if PanelMinimized then
                 MinButton.Text = "+"
+                -- Animate content fade out
+                TweenService:Create(StatsContent, TweenInfo.new(0.3), {
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0, 4 * ScaleFactor, 0, 0)
+                }):Play()
+                task.wait(0.15)
                 StatsContent.Visible = false
-                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 24 * ScaleFactor)
+                
+                -- Animate panel shrink
+                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 24 * ScaleFactor)
+                }):Play()
             else
                 MinButton.Text = "−"
                 StatsContent.Visible = true
+                
+                -- Animate panel expand
                 UpdateStatsContentSize()
                 local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                 local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                
+                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                }):Play()
+                
+                -- Animate content fade in
+                StatsContent.BackgroundTransparency = 1
+                StatsContent.Position = UDim2.new(0, 4 * ScaleFactor, 0, 0)
+                TweenService:Create(StatsContent, TweenInfo.new(0.3), {
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0, 4 * ScaleFactor, 0, 28 * ScaleFactor)
+                }):Play()
+                
                 PanelOriginalSize = StatsFrame.Size
             end
         end)
         
         CloseButton.MouseButton1Click:Connect(function()
             task.cancel(statsRefreshThread)
-            TweenService:Create(StatsFrame, TweenInfo.new(0.2), {
+            
+            -- Animate close with bounce effect
+            TweenService:Create(StatsFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
                 Size = UDim2.new(0, 0, 0, 0),
                 Position = UDim2.new(0.5, StatsFrame.Position.X.Offset, 0.5, StatsFrame.Position.Y.Offset),
                 BackgroundTransparency = 1
             }):Play()
+            
             task.wait(0.2)
             StatsGui:Destroy()
             
@@ -980,16 +1083,7 @@ function Library:CreateWindow(Title, Options)
         }
         
         function StatsPanelObject:AddStat(Name, Function)
-            local StatLabel = Instance.new("TextLabel")
-            StatLabel.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
-            StatLabel.BackgroundTransparency = 1
-            StatLabel.Text = Name .. ": "
-            StatLabel.TextColor3 = Theme.Text
-            StatLabel.Font = Enum.Font.Gotham
-            StatLabel.TextSize = 9 * ScaleFactor
-            StatLabel.TextXAlignment = Enum.TextXAlignment.Left
-            StatLabel.Parent = StatsContent
-            
+            local StatLabel = CreateStatLabel(Name)
             StatLabels[Name] = StatLabel
             StatFunctions[Name] = Function
             
@@ -997,22 +1091,40 @@ function Library:CreateWindow(Title, Options)
             if not PanelMinimized then
                 local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                 local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                
+                -- Animate panel size increase
+                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                }):Play()
+                
                 PanelOriginalSize = StatsFrame.Size
             end
         end
         
         function StatsPanelObject:RemoveStat(Name)
             if StatLabels[Name] then
-                StatLabels[Name]:Destroy()
-                StatLabels[StatName] = nil
-                StatFunctions[StatName] = nil
+                -- Animate stat removal
+                local label = StatLabels[Name]
+                TweenService:Create(label, TweenInfo.new(0.2), {
+                    TextTransparency = 1,
+                    Position = UDim2.new(0, -20 * ScaleFactor, 0, label.Position.Y.Offset)
+                }):Play()
+                
+                task.wait(0.2)
+                label:Destroy()
+                StatLabels[Name] = nil
+                StatFunctions[Name] = nil
                 
                 UpdateStatsContentSize()
                 if not PanelMinimized then
                     local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                     local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                    StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                    
+                    -- Animate panel size decrease
+                    TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
+                    }):Play()
+                    
                     PanelOriginalSize = StatsFrame.Size
                 end
             end
@@ -1021,11 +1133,23 @@ function Library:CreateWindow(Title, Options)
         function StatsPanelObject:SetPosition(NewPosition)
             Position = NewPosition
             StatsPanelObject.Position = NewPosition
-            StatsFrame.Position = Positions[NewPosition] or Positions["TopRight"]
+            
+            -- Animate movement to new position
+            TweenService:Create(StatsFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = Positions[NewPosition] or Positions["TopRight"]
+            }):Play()
         end
         
         function StatsPanelObject:SetTitle(NewTitle)
             StatsTitle.Text = NewTitle
+            -- Animate title change
+            TweenService:Create(StatsTitle, TweenInfo.new(0.2), {
+                TextTransparency = 0.5
+            }):Play()
+            task.wait(0.1)
+            TweenService:Create(StatsTitle, TweenInfo.new(0.2), {
+                TextTransparency = 0
+            }):Play()
         end
         
         function StatsPanelObject:Refresh()
@@ -1041,12 +1165,20 @@ function Library:CreateWindow(Title, Options)
             StatsGui:Destroy()
         end
         
-        -- Initial size calculation
-        UpdateStatsContentSize()
-        local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
-        local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-        StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
-        PanelOriginalSize = StatsFrame.Size
+        -- Initial size calculation with animation
+        task.spawn(function()
+            task.wait(0.2)
+            UpdateStatsContentSize()
+            local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
+            local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
+            
+            StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, 24 * ScaleFactor)
+            TweenService:Create(StatsFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
+            }):Play()
+            
+            PanelOriginalSize = StatsFrame.Size
+        end)
         
         table.insert(Library.StatsPanels, StatsPanelObject)
         return StatsPanelObject
