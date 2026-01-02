@@ -703,7 +703,7 @@ function Library:CreateWindow(Title, Options)
         local Size = PanelSettings.Size or UDim2.new(0, 180 * ScaleFactor, 0, 140 * ScaleFactor)
         local StatsList = PanelSettings.Stats or {}
         local RefreshRate = PanelSettings.RefreshRate or 1
-        local Title = PanelSettings.Title or "Stats"
+        local Title = PanelSettings.Title or "Stats Panel"
         
         local Positions = {
             TopLeft = UDim2.new(0, 20, 0, 20),
@@ -744,7 +744,7 @@ function Library:CreateWindow(Title, Options)
         Instance.new("UICorner", StatsHeader).CornerRadius = UDim.new(0, 8, 0, 0)
         
         local StatsTitle = Instance.new("TextLabel")
-        StatsTitle.Size = UDim2.new(1, -20 * ScaleFactor, 1, 0)
+        StatsTitle.Size = UDim2.new(1, -45 * ScaleFactor, 1, 0)
         StatsTitle.Position = UDim2.new(0, 10 * ScaleFactor, 0, 0)
         StatsTitle.BackgroundTransparency = 1
         StatsTitle.Text = Title
@@ -755,8 +755,8 @@ function Library:CreateWindow(Title, Options)
         StatsTitle.Parent = StatsHeader
         
         local RefreshButton = Instance.new("TextButton")
-        RefreshButton.Size = UDim2.new(0, 20 * ScaleFactor, 0, 20 * ScaleFactor)
-        RefreshButton.Position = UDim2.new(1, -25 * ScaleFactor, 0.5, -10 * ScaleFactor)
+        RefreshButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
+        RefreshButton.Position = UDim2.new(1, -40 * ScaleFactor, 0.5, -9 * ScaleFactor)
         RefreshButton.BackgroundColor3 = Theme.Button
         RefreshButton.Text = "⟳"
         RefreshButton.TextColor3 = Theme.Text
@@ -764,15 +764,28 @@ function Library:CreateWindow(Title, Options)
         RefreshButton.TextSize = 10 * ScaleFactor
         RefreshButton.Parent = StatsHeader
         
-        Instance.new("UICorner", RefreshButton).CornerRadius = UDim.new(0, 4)
+        local RefreshButtonCorner = Instance.new("UICorner")
+        RefreshButtonCorner.CornerRadius = UDim.new(1, 0)
+        RefreshButtonCorner.Parent = RefreshButton
         
-        local StatsContent = Instance.new("ScrollingFrame")
-        StatsContent.Size = UDim2.new(1, 0, 1, -25 * ScaleFactor)
-        StatsContent.Position = UDim2.new(0, 0, 0, 25 * ScaleFactor)
+        local CloseButton = Instance.new("TextButton")
+        CloseButton.Size = UDim2.new(0, 18 * ScaleFactor, 0, 18 * ScaleFactor)
+        CloseButton.Position = UDim2.new(1, -15 * ScaleFactor, 0.5, -9 * ScaleFactor)
+        CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        CloseButton.Text = "X"
+        CloseButton.TextColor3 = Theme.Text
+        CloseButton.Font = Enum.Font.GothamBold
+        CloseButton.TextSize = 10 * ScaleFactor
+        CloseButton.Parent = StatsHeader
+        
+        local CloseButtonCorner = Instance.new("UICorner")
+        CloseButtonCorner.CornerRadius = UDim.new(1, 0)
+        CloseButtonCorner.Parent = CloseButton
+        
+        local StatsContent = Instance.new("Frame")
+        StatsContent.Size = UDim2.new(1, -10 * ScaleFactor, 1, -30 * ScaleFactor)
+        StatsContent.Position = UDim2.new(0, 5 * ScaleFactor, 0, 30 * ScaleFactor)
         StatsContent.BackgroundTransparency = 1
-        StatsContent.ScrollBarThickness = 2 * ScaleFactor
-        StatsContent.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-        StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
         StatsContent.Parent = StatsFrame
         
         local StatsListLayout = Instance.new("UIListLayout")
@@ -780,7 +793,11 @@ function Library:CreateWindow(Title, Options)
         StatsListLayout.Parent = StatsContent
         
         StatsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            StatsContent.CanvasSize = UDim2.new(0, 0, 0, StatsListLayout.AbsoluteContentSize.Y + 10)
+            if StatsListLayout.AbsoluteContentSize.Y > StatsContent.AbsoluteSize.Y then
+                StatsContent.CanvasSize = UDim2.new(0, 0, 0, StatsListLayout.AbsoluteContentSize.Y)
+            else
+                StatsContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+            end
         end)
         
         local StatLabels = {}
@@ -833,7 +850,7 @@ function Library:CreateWindow(Title, Options)
         
         for _, StatName in pairs(StatsList) do
             local StatLabel = Instance.new("TextLabel")
-            StatLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+            StatLabel.Size = UDim2.new(1, 0, 0, 20 * ScaleFactor)
             StatLabel.BackgroundTransparency = 1
             StatLabel.Text = StatName .. ": "
             StatLabel.TextColor3 = Theme.Text
@@ -870,11 +887,21 @@ function Library:CreateWindow(Title, Options)
             RefreshButton.Rotation = 0
         end)
         
+        CloseButton.MouseButton1Click:Connect(function()
+            TweenService:Create(StatsFrame, TweenInfo.new(0.2), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = UDim2.new(0.5, StatsFrame.Position.X.Offset, 0.5, StatsFrame.Position.Y.Offset),
+                BackgroundTransparency = 1
+            }):Play()
+            task.wait(0.2)
+            StatsGui:Destroy()
+        end)
+        
         local StatsPanelObject = {}
         
         function StatsPanelObject:AddStat(Name, Function)
             local StatLabel = Instance.new("TextLabel")
-            StatLabel.Size = UDim2.new(1, -20 * ScaleFactor, 0, 20 * ScaleFactor)
+            StatLabel.Size = UDim2.new(1, 0, 0, 20 * ScaleFactor)
             StatLabel.BackgroundTransparency = 1
             StatLabel.Text = Name .. ": "
             StatLabel.TextColor3 = Theme.Text
