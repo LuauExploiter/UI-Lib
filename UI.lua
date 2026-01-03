@@ -72,9 +72,10 @@ function Library:CreateWindow(Title, Options)
     
     local Window = {}
     local IsMinimized = false
-    local CurrentPage = nil
     local Elements = {}
-    local OriginalHeight = 280 * ScaleFactor -- Reduced from 320
+    local OriginalHeight = 280 * ScaleFactor
+    local Tabs = {} -- Store all tabs
+    local CurrentTab = nil -- Track current tab
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "Vexona_" .. HttpService:GenerateGUID(false)
@@ -204,34 +205,24 @@ function Library:CreateWindow(Title, Options)
         TabGridScroll.CanvasSize = UDim2.new(0, 0, 0, TabGridLayout.AbsoluteContentSize.Y)
     end)
     
-    local Content = Instance.new("ScrollingFrame") -- Changed to ScrollingFrame
-    Content.BackgroundTransparency = 1
-    Content.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
-    Content.Position = UDim2.new(0, 0, 0, 100 * ScaleFactor)
-    Content.ScrollBarThickness = 2 * ScaleFactor
-    Content.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Content.Parent = Main
-    
-    local ContentLayout = Instance.new("UIListLayout")
-    ContentLayout.Padding = UDim.new(0, 6 * ScaleFactor)
-    ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    ContentLayout.Parent = Content
-    
-    ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        Content.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
-        CurrentPage = Content
-        UpdateSize()
-    end)
+    -- Content container (holds all tab contents)
+    local ContentContainer = Instance.new("Frame")
+    ContentContainer.BackgroundTransparency = 1
+    ContentContainer.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
+    ContentContainer.Position = UDim2.new(0, 0, 0, 100 * ScaleFactor)
+    ContentContainer.ClipsDescendants = true
+    ContentContainer.Parent = Main
     
     local function UpdateSize()
-        local ContentHeight = Content.CanvasSize.Y.Offset + 20 * ScaleFactor
-        local MaxHeight = ScreenSize.Y * 0.7 -- Limit to 70% of screen height
-        local NewHeight = math.min(math.max(280 * ScaleFactor, 100 * ScaleFactor + ContentHeight), MaxHeight)
-        OriginalHeight = NewHeight
-        
-        Main.Size = UDim2.new(0, 240 * ScaleFactor, 0, NewHeight)
-        Content.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
+        if CurrentTab then
+            local ContentHeight = CurrentTab.Content.CanvasSize.Y.Offset + 20 * ScaleFactor
+            local MaxHeight = ScreenSize.Y * 0.7
+            local NewHeight = math.min(math.max(280 * ScaleFactor, 100 * ScaleFactor + ContentHeight), MaxHeight)
+            OriginalHeight = NewHeight
+            
+            Main.Size = UDim2.new(0, 240 * ScaleFactor, 0, NewHeight)
+            ContentContainer.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
+        end
     end
     
     if ForcePosition then
@@ -273,29 +264,27 @@ function Library:CreateWindow(Title, Options)
             TweenService:Create(TabGridContainer, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
-            TweenService:Create(Content, TweenInfo.new(0.2), {
+            TweenService:Create(ContentContainer, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
             task.wait(0.1)
             TabGridContainer.Visible = false
-            Content.Visible = false
+            ContentContainer.Visible = false
             
-            -- FIXED: Actually shrink the window
             TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, 36 * ScaleFactor)
             }):Play()
         else
             MinButton.Text = "−"
             TabGridContainer.Visible = true
-            Content.Visible = true
+            ContentContainer.Visible = true
             TweenService:Create(TabGridContainer, TweenInfo.new(0.2), {
                 BackgroundTransparency = 0
             }):Play()
-            TweenService:Create(Content, TweenInfo.new(0.2), {
+            TweenService:Create(ContentContainer, TweenInfo.new(0.2), {
                 BackgroundTransparency = 1
             }):Play()
             
-            -- FIXED: Restore to proper height
             TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, OriginalHeight)
             }):Play()
@@ -343,18 +332,59 @@ function Library:CreateWindow(Title, Options)
         TabButton.LayoutOrder = #TabGridScroll:GetChildren()
         TabButton.Parent = TabGridScroll
         
-        TabButton.MouseButton1Click:Connect(function()
-            for _, Child in pairs(TabGridScroll:GetChildren()) do
-                if Child:IsA("TextButton") then
-                    Child.TextColor3 = Theme.TextMuted
-                end
+        -- Create content frame for this tab
+        local TabContent = Instance.new("ScrollingFrame")
+        TabContent.BackgroundTransparency = 1
+        TabContent.Size = UDim2.new(1, 0, 1, 0)
+        TabContent.ScrollBarThickness = 2 * ScaleFactor
+        TabContent.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+        TabContent.CanvasSize = UDim2.new(0, 0, 0, 0)
+        TabContent.Visible = false
+        TabContent.Parent = ContentContainer
+        
+        local ContentLayout = Instance.new("UIListLayout")
+        ContentLayout.Padding = UDim.new(0, 6 * ScaleFactor)
+        ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        ContentLayout.Parent = TabContent
+        
+        ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            TabContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+            if CurrentTab and CurrentTab.Button == TabButton then
+                UpdateSize()
             end
+        end)
+        
+        -- Store tab data
+        local TabData = {
+            Button = TabButton,
+            Content = TabContent,
+            Name = Name,
+            Elements = {}
+        }
+        table.insert(Tabs, TabData)
+        
+        TabButton.MouseButton1Click:Connect(function()
+            -- Hide all tab contents
+            for _, Tab in pairs(Tabs) do
+                Tab.Content.Visible = false
+                Tab.Button.TextColor3 = Theme.TextMuted
+            end
+            
+            -- Show selected tab content
+            TabContent.Visible = true
             TabButton.TextColor3 = Theme.Text
+            
+            -- Update current tab
+            CurrentTab = TabData
             UpdateSize()
         end)
         
-        if #TabGridScroll:GetChildren() == 1 then
+        -- Set first tab as active
+        if #Tabs == 1 then
             TabButton.TextColor3 = Theme.Text
+            TabContent.Visible = true
+            CurrentTab = TabData
+            UpdateSize()
         end
         
         local TabItems = {}
@@ -367,7 +397,7 @@ function Library:CreateWindow(Title, Options)
             ToggleButton.TextColor3 = Theme.ToggleOff
             ToggleButton.Font = Enum.Font.GothamBold
             ToggleButton.TextSize = 9 * ScaleFactor
-            ToggleButton.Parent = Content
+            ToggleButton.Parent = TabContent
             
             Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 5)
             
@@ -395,6 +425,7 @@ function Library:CreateWindow(Title, Options)
                 return State
             end
             
+            table.insert(TabData.Elements, ToggleObject)
             table.insert(Elements, ToggleObject)
             return ToggleObject
         end
@@ -407,7 +438,7 @@ function Library:CreateWindow(Title, Options)
             Button.TextColor3 = Theme.Text
             Button.Font = Enum.Font.GothamBold
             Button.TextSize = 9 * ScaleFactor
-            Button.Parent = Content
+            Button.Parent = TabContent
             
             Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 5)
             
@@ -426,13 +457,15 @@ function Library:CreateWindow(Title, Options)
                 TweenService:Create(Button, TweenInfo.new(0.1), {BackgroundColor3 = OriginalColor}):Play()
                 Callback()
             end)
+            
+            table.insert(TabData.Elements, Button)
         end
         
         function TabItems:CreateTextBox(Text, Placeholder, Callback)
             local TextBoxFrame = Instance.new("Frame")
             TextBoxFrame.Size = UDim2.new(0, 210 * ScaleFactor, 0, 40 * ScaleFactor)
             TextBoxFrame.BackgroundTransparency = 1
-            TextBoxFrame.Parent = Content
+            TextBoxFrame.Parent = TabContent
             
             local TextBoxTitle = Instance.new("TextLabel")
             TextBoxTitle.Size = UDim2.new(1, 0, 0, 16 * ScaleFactor)
@@ -473,6 +506,7 @@ function Library:CreateWindow(Title, Options)
                 return TextBox.Text
             end
             
+            table.insert(TabData.Elements, TextBoxObject)
             table.insert(Elements, TextBoxObject)
             return TextBoxObject
         end
@@ -485,14 +519,16 @@ function Library:CreateWindow(Title, Options)
             Label.TextColor3 = Theme.TextMuted
             Label.Font = Enum.Font.Gotham
             Label.TextSize = 9 * ScaleFactor
-            Label.Parent = Content
+            Label.Parent = TabContent
+            
+            table.insert(TabData.Elements, Label)
         end
         
         function TabItems:CreateDropdown(Text, Options, Callback)
             local DropdownFrame = Instance.new("Frame")
             DropdownFrame.Size = UDim2.new(0, 210 * ScaleFactor, 0, 28 * ScaleFactor)
             DropdownFrame.BackgroundColor3 = Theme.Dropdown
-            DropdownFrame.Parent = Content
+            DropdownFrame.Parent = TabContent
             
             Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 5)
             
@@ -552,7 +588,7 @@ function Library:CreateWindow(Title, Options)
             
             local function CloseAllDropdowns()
                 for _, Child in pairs(ScreenGui:GetChildren()) do
-                    if Child:IsA("ScrollingFrame") and Child ~= TabGridScroll and Child ~= Content then
+                    if Child:IsA("ScrollingFrame") and Child ~= TabGridScroll then
                         TweenService:Create(Child, TweenInfo.new(0.2), {Size = UDim2.new(0, 210 * ScaleFactor, 0, 0)}):Play()
                         task.wait(0.2)
                         Child.Visible = false
@@ -629,11 +665,11 @@ function Library:CreateWindow(Title, Options)
                 return Selected
             end
             
+            table.insert(TabData.Elements, DropdownObject)
             table.insert(Elements, DropdownObject)
             return DropdownObject
         end
         
-        -- Black-Themed Entry System
         function TabItems:CreateBrainrotEntry(ParentFrame, AnimalData, Index, TeleportCallback)
             local Entry = Instance.new("Frame")
             Entry.Size = UDim2.new(1, -10 * ScaleFactor, 0, 70 * ScaleFactor)
@@ -717,7 +753,6 @@ function Library:CreateWindow(Title, Options)
             TpStroke.Transparency = 0.3
             TpStroke.Parent = TpButton
             
-            -- Teleport Button Interactions
             TpButton.MouseButton1Click:Connect(function()
                 if TeleportCallback then
                     TeleportCallback(AnimalData)
@@ -738,10 +773,10 @@ function Library:CreateWindow(Title, Options)
                 }):Play()
             end)
             
+            table.insert(TabData.Elements, Entry)
             return Entry
         end
         
-        -- Scrollable Container for Entries
         function TabItems:CreateEntryContainer()
             local Container = Instance.new("ScrollingFrame")
             Container.Size = UDim2.new(1, -8 * ScaleFactor, 1, -6 * ScaleFactor)
@@ -750,7 +785,7 @@ function Library:CreateWindow(Title, Options)
             Container.ScrollBarThickness = 2 * ScaleFactor
             Container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
             Container.CanvasSize = UDim2.new(0, 0, 0, 0)
-            Container.Parent = Content
+            Container.Parent = TabContent
             
             local ContainerLayout = Instance.new("UIListLayout")
             ContainerLayout.Padding = UDim.new(0, 5 * ScaleFactor)
@@ -760,6 +795,7 @@ function Library:CreateWindow(Title, Options)
                 Container.CanvasSize = UDim2.new(0, 0, 0, ContainerLayout.AbsoluteContentSize.Y)
             end)
             
+            table.insert(TabData.Elements, Container)
             return Container
         end
         
@@ -775,12 +811,10 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotificationGui.Parent = CoreGui
         
-        -- Calculate position
         local startY = 15 * ScaleFactor
         local notificationHeight = 45 * ScaleFactor
         local notificationWidth = 200 * ScaleFactor
         
-        -- Create notification
         local Notification = Instance.new("Frame")
         Notification.Size = UDim2.new(0, notificationWidth, 0, notificationHeight)
         Notification.BackgroundColor3 = Theme.Notification
@@ -919,7 +953,6 @@ function Library:CreateWindow(Title, Options)
         StatsTitle.TextXAlignment = Enum.TextXAlignment.Left
         StatsTitle.Parent = StatsHeader
         
-        -- Buttons
         local MinButton = Instance.new("TextButton")
         MinButton.Size = UDim2.new(0, 16 * ScaleFactor, 0, 16 * ScaleFactor)
         MinButton.Position = UDim2.new(1, -38 * ScaleFactor, 0.5, -8 * ScaleFactor)
@@ -948,7 +981,6 @@ function Library:CreateWindow(Title, Options)
         CloseButtonCorner.CornerRadius = UDim.new(1, 0)
         CloseButtonCorner.Parent = CloseButton
         
-        -- Button hover effects
         MinButton.MouseEnter:Connect(function()
             TweenService:Create(MinButton, TweenInfo.new(0.2), {
                 BackgroundColor3 = Theme.Button
@@ -1053,7 +1085,6 @@ function Library:CreateWindow(Title, Options)
             StatsList = {"FPS", "Ping", "Memory"}
         end
         
-        -- Create stats
         for _, StatName in pairs(StatsList) do
             local StatLabel = Instance.new("TextLabel")
             StatLabel.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
@@ -1189,7 +1220,6 @@ function Library:CreateWindow(Title, Options)
             StatsGui:Destroy()
         end
         
-        -- Initial size calculation
         UpdateStatsContentSize()
         local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
         local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
