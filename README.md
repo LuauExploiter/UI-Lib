@@ -186,6 +186,47 @@ WeaponSelector:SetSelection("Bow")
 local CurrentWeapon = WeaponSelector:GetSelection()
 ```
 
+CreateEntryContainer
+
+Creates a scrollable container for dynamic content entries.
+
+```lua
+local Container = Tab:CreateEntryContainer()
+```
+
+Example:
+
+```lua
+local EntriesContainer = MainTab:CreateEntryContainer()
+```
+
+CreateBrainrotEntry
+
+Creates a styled entry card for displaying structured data.
+
+```lua
+local Entry = Tab:CreateBrainrotEntry(ParentFrame: Instance, AnimalData: table, Index: number, TeleportCallback: function)
+```
+
+Parameters:
+
+· ParentFrame - The container to parent the entry to
+· AnimalData - Table containing entry data: {Name, GenText, Mutation}
+· Index - Display order index
+· TeleportCallback - Function called when TP button is clicked
+
+Example:
+
+```lua
+local entry = Tab:CreateBrainrotEntry(EntriesContainer, {
+    Name = "Dragon",
+    GenText = "Generation 3",
+    Mutation = "Fire Breath"
+}, 1, function(data)
+    print("Teleporting to:", data.Name)
+end)
+```
+
 ---
 
 Statistics Display
@@ -312,6 +353,13 @@ Programmatically shows or hides the window.
 Window:ToggleVisibility()
 ```
 
+Example:
+
+```lua
+-- Toggle window visibility
+Window:ToggleVisibility()
+```
+
 Destroy
 
 Removes the window and all associated elements.
@@ -357,6 +405,18 @@ local TeleportDropdown = MainTab:CreateDropdown("Teleport Location",
     MainWindow:CreateNotification("Teleport", "Warping to " .. Location, "Info", 2)
 end)
 
+-- Create an entry container and add entries
+local EntriesContainer = MainTab:CreateEntryContainer()
+for i = 1, 5 do
+    Tab:CreateBrainrotEntry(EntriesContainer, {
+        Name = "Pet " .. i,
+        GenText = "Generation " .. math.random(1, 10),
+        Mutation = math.random(1, 3) == 1 and "Special" or "None"
+    }, i, function(data)
+        print("Selected:", data.Name)
+    end)
+end
+
 local StatsPanel = MainWindow:CreateStatsPanel({
     Position = "TopRight",
     Title = "Performance",
@@ -381,41 +441,120 @@ Smart Positioning
 · Notifications automatically avoid overlapping with interface elements
 · Statistics panels intelligently resize to content
 · Elements maintain proper spacing and alignment
+· Automatic device scaling for different screen sizes
 
 Smooth Animations
 
 · Subtle transitions for state changes
 · Fluid minimize/maximize effects
 · Non-intrusive notification entry/exit
+· Interactive hover effects on buttons
 
 Clean Aesthetics
 
 · Consistent color scheme and typography
 · Minimal visual clutter
 · Intuitive interaction patterns
+· Modern dark theme with accent colors
 
 Performance Focus
 
 · Efficient update cycles
 · Minimal memory footprint
 · Responsive user interactions
+· Optimized rendering for Roblox engine
 
 ---
 
 Best Practices
 
-1. Organize Elements Logically
-   · Group related features in tabs
-   · Use labels for section headers
-   · Maintain consistent naming conventions
+1. Organization
+
+```lua
+-- Group related features
+local CombatTab = Window:CreateTab("Combat")
+local MovementTab = Window:CreateTab("Movement")
+local VisualTab = Window:CreateTab("Visuals")
+
+-- Use labels for sections
+CombatTab:CreateLabel("Weapon Modifications")
+CombatTab:CreateLabel("Player Modifications")
+```
+
 2. User Experience
-   · Provide immediate feedback for actions
-   · Use appropriate notification types
-   · Keep interface uncluttered
+
+```lua
+-- Provide feedback for actions
+Tab:CreateButton("Execute", function()
+    Window:CreateNotification("Success", "Script executed", "Success", 2)
+end)
+
+-- Use appropriate notification types
+Window:CreateNotification("Error", "Invalid input", "Error", 3)
+```
+
 3. Resource Management
-   · Remove statistics panels when not needed
-   · Use appropriate refresh rates
-   · Clean up window instances on script termination
+
+```lua
+-- Clean up when done
+game:GetService("Players").LocalPlayer.CharacterAdded:Connect(function()
+    if StatsPanel then
+        StatsPanel:Destroy()
+    end
+end)
+```
+
+4. Tab Management
+
+· Each tab has isolated content
+· First tab is automatically selected
+· Smooth transitions between tabs
+· Tab content is properly scoped
+
+---
+
+Troubleshooting
+
+Common Issues:
+
+1. Elements not appearing in correct tab?
+   · Ensure you're creating elements on the correct tab instance
+   · Each tab has its own content frame
+2. Window not responding to keybind?
+   · Check if another script is using the same key
+   · Verify the keycode is correct: Enum.KeyCode.RightShift
+3. Notifications overlapping?
+   · Notifications automatically stack vertically
+   · Each notification has a unique position calculation
+4. Performance issues?
+   · Reduce stats panel refresh rate
+   · Minimize animations on low-end devices
+   · Use appropriate scaling factor
+
+---
+
+Changelog
+
+v1.2.0
+
+· Fixed tab system: Each tab now has isolated content
+· First tab automatically selected on window creation
+· Improved scrolling frame management
+· Enhanced entry system with styled cards
+
+v1.1.0
+
+· Added stats panel system
+· Added notification system
+· Improved animations and transitions
+· Added device scaling support
+
+v1.0.0
+
+· Initial release
+· Basic UI components
+· Tab system
+· Theme support
 
 ---
 
@@ -423,10 +562,15 @@ Support
 
 For issues or questions:
 
-1. Verify you're using the latest library version
-2. Check element positioning and sizing
-3. Review callback function implementations
-4. Ensure proper cleanup of UI instances
+1. GitHub Issues: Open an issue on the repository
+2. Discord: Join our Discord server for support
+3. Documentation: Refer to this documentation for examples
+
+Before reporting issues:
+
+· Verify you're using the latest version
+· Check if the issue is reproducible
+· Provide code snippets and error messages
 
 ---
 
@@ -437,3 +581,4 @@ Free for personal and commercial use. Attribution appreciated but not required.
 ---
 
 Vexona UI - Elegant interface design for Roblox experiences
+Clean • Performant • Customizable
