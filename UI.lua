@@ -74,10 +74,7 @@ function Library:CreateWindow(Title, Options)
     local IsMinimized = false
     local CurrentPage = nil
     local Elements = {}
-    local OriginalHeight = 320 * ScaleFactor
-    local Tabs = {}
-    local TabButtons = {}
-    local TabGrid = {}
+    local OriginalHeight = 280 * ScaleFactor -- Reduced from 320
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "Vexona_" .. HttpService:GenerateGUID(false)
@@ -177,7 +174,7 @@ function Library:CreateWindow(Title, Options)
     
     -- Tab grid system
     local TabGridContainer = Instance.new("Frame")
-    TabGridContainer.Size = UDim2.new(1, -16 * ScaleFactor, 0, 56 * ScaleFactor) -- Height for 2 rows
+    TabGridContainer.Size = UDim2.new(1, -16 * ScaleFactor, 0, 56 * ScaleFactor)
     TabGridContainer.Position = UDim2.new(0, 8 * ScaleFactor, 0, 40 * ScaleFactor)
     TabGridContainer.BackgroundColor3 = Theme.Tab
     TabGridContainer.Parent = Main
@@ -195,7 +192,7 @@ function Library:CreateWindow(Title, Options)
     TabGridScroll.Parent = TabGridContainer
     
     local TabGridLayout = Instance.new("UIGridLayout")
-    TabGridLayout.CellSize = UDim2.new(0.333, -5 * ScaleFactor, 0, 26 * ScaleFactor) -- 3 per row
+    TabGridLayout.CellSize = UDim2.new(0.333, -5 * ScaleFactor, 0, 26 * ScaleFactor)
     TabGridLayout.CellPadding = UDim2.new(0, 4 * ScaleFactor, 0, 4 * ScaleFactor)
     TabGridLayout.FillDirection = Enum.FillDirection.Horizontal
     TabGridLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -207,20 +204,34 @@ function Library:CreateWindow(Title, Options)
         TabGridScroll.CanvasSize = UDim2.new(0, 0, 0, TabGridLayout.AbsoluteContentSize.Y)
     end)
     
-    local Content = Instance.new("Frame")
+    local Content = Instance.new("ScrollingFrame") -- Changed to ScrollingFrame
     Content.BackgroundTransparency = 1
-    Content.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor) -- Adjusted for tab grid
+    Content.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
     Content.Position = UDim2.new(0, 0, 0, 100 * ScaleFactor)
+    Content.ScrollBarThickness = 2 * ScaleFactor
+    Content.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
+    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
     Content.Parent = Main
     
+    local ContentLayout = Instance.new("UIListLayout")
+    ContentLayout.Padding = UDim.new(0, 6 * ScaleFactor)
+    ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    ContentLayout.Parent = Content
+    
+    ContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Content.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
+        CurrentPage = Content
+        UpdateSize()
+    end)
+    
     local function UpdateSize()
-        local ContentHeight = CurrentPage and (CurrentPage.CanvasSize.Y.Offset + 20 * ScaleFactor) or 200 * ScaleFactor
-        local NewHeight = math.max(350 * ScaleFactor, 100 * ScaleFactor + ContentHeight)
+        local ContentHeight = Content.CanvasSize.Y.Offset + 20 * ScaleFactor
+        local MaxHeight = ScreenSize.Y * 0.7 -- Limit to 70% of screen height
+        local NewHeight = math.min(math.max(280 * ScaleFactor, 100 * ScaleFactor + ContentHeight), MaxHeight)
         OriginalHeight = NewHeight
         
         Main.Size = UDim2.new(0, 240 * ScaleFactor, 0, NewHeight)
         Content.Size = UDim2.new(1, 0, 1, -100 * ScaleFactor)
-        Content.Position = UDim2.new(0, 0, 0, 100 * ScaleFactor)
     end
     
     if ForcePosition then
@@ -269,6 +280,7 @@ function Library:CreateWindow(Title, Options)
             TabGridContainer.Visible = false
             Content.Visible = false
             
+            -- FIXED: Actually shrink the window
             TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, 36 * ScaleFactor)
             }):Play()
@@ -283,6 +295,7 @@ function Library:CreateWindow(Title, Options)
                 BackgroundTransparency = 1
             }):Play()
             
+            -- FIXED: Restore to proper height
             TweenService:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.new(0, Main.Size.X.Offset, 0, OriginalHeight)
             }):Play()
@@ -330,51 +343,19 @@ function Library:CreateWindow(Title, Options)
         TabButton.LayoutOrder = #TabGridScroll:GetChildren()
         TabButton.Parent = TabGridScroll
         
-        local Page = Instance.new("ScrollingFrame")
-        Page.BackgroundTransparency = 1
-        Page.Visible = false
-        Page.ScrollBarThickness = 2 * ScaleFactor
-        Page.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
-        Page.CanvasSize = UDim2.new(0, 0, 0, 0)
-        Page.Parent = Content
-        
-        local PageList = Instance.new("UIListLayout")
-        PageList.Padding = UDim.new(0, 6 * ScaleFactor)
-        PageList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        PageList.Parent = Page
-        
-        PageList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Page.CanvasSize = UDim2.new(0, 0, 0, PageList.AbsoluteContentSize.Y + 10)
-            CurrentPage = Page
-            UpdateSize()
-        end)
-        
         TabButton.MouseButton1Click:Connect(function()
-            for _, Child in pairs(Content:GetChildren()) do
-                if Child:IsA("ScrollingFrame") then
-                    Child.Visible = false
-                end
-            end
             for _, Child in pairs(TabGridScroll:GetChildren()) do
                 if Child:IsA("TextButton") then
                     Child.TextColor3 = Theme.TextMuted
                 end
             end
-            Page.Visible = true
             TabButton.TextColor3 = Theme.Text
-            CurrentPage = Page
             UpdateSize()
         end)
         
-        if CurrentPage == nil then
-            CurrentPage = Page
-            Page.Visible = true
+        if #TabGridScroll:GetChildren() == 1 then
             TabButton.TextColor3 = Theme.Text
-            UpdateSize()
         end
-        
-        Page.Size = UDim2.new(1, -8 * ScaleFactor, 1, -6 * ScaleFactor)
-        Page.Position = UDim2.new(0, 4 * ScaleFactor, 0, 3 * ScaleFactor)
         
         local TabItems = {}
         
@@ -386,7 +367,7 @@ function Library:CreateWindow(Title, Options)
             ToggleButton.TextColor3 = Theme.ToggleOff
             ToggleButton.Font = Enum.Font.GothamBold
             ToggleButton.TextSize = 9 * ScaleFactor
-            ToggleButton.Parent = Page
+            ToggleButton.Parent = Content
             
             Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 5)
             
@@ -426,7 +407,7 @@ function Library:CreateWindow(Title, Options)
             Button.TextColor3 = Theme.Text
             Button.Font = Enum.Font.GothamBold
             Button.TextSize = 9 * ScaleFactor
-            Button.Parent = Page
+            Button.Parent = Content
             
             Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 5)
             
@@ -451,7 +432,7 @@ function Library:CreateWindow(Title, Options)
             local TextBoxFrame = Instance.new("Frame")
             TextBoxFrame.Size = UDim2.new(0, 210 * ScaleFactor, 0, 40 * ScaleFactor)
             TextBoxFrame.BackgroundTransparency = 1
-            TextBoxFrame.Parent = Page
+            TextBoxFrame.Parent = Content
             
             local TextBoxTitle = Instance.new("TextLabel")
             TextBoxTitle.Size = UDim2.new(1, 0, 0, 16 * ScaleFactor)
@@ -504,14 +485,14 @@ function Library:CreateWindow(Title, Options)
             Label.TextColor3 = Theme.TextMuted
             Label.Font = Enum.Font.Gotham
             Label.TextSize = 9 * ScaleFactor
-            Label.Parent = Page
+            Label.Parent = Content
         end
         
         function TabItems:CreateDropdown(Text, Options, Callback)
             local DropdownFrame = Instance.new("Frame")
             DropdownFrame.Size = UDim2.new(0, 210 * ScaleFactor, 0, 28 * ScaleFactor)
             DropdownFrame.BackgroundColor3 = Theme.Dropdown
-            DropdownFrame.Parent = Page
+            DropdownFrame.Parent = Content
             
             Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 5)
             
@@ -571,7 +552,7 @@ function Library:CreateWindow(Title, Options)
             
             local function CloseAllDropdowns()
                 for _, Child in pairs(ScreenGui:GetChildren()) do
-                    if Child:IsA("ScrollingFrame") and Child ~= TabGridScroll then
+                    if Child:IsA("ScrollingFrame") and Child ~= TabGridScroll and Child ~= Content then
                         TweenService:Create(Child, TweenInfo.new(0.2), {Size = UDim2.new(0, 210 * ScaleFactor, 0, 0)}):Play()
                         task.wait(0.2)
                         Child.Visible = false
@@ -769,7 +750,7 @@ function Library:CreateWindow(Title, Options)
             Container.ScrollBarThickness = 2 * ScaleFactor
             Container.ScrollBarImageColor3 = Color3.fromRGB(60, 60, 60)
             Container.CanvasSize = UDim2.new(0, 0, 0, 0)
-            Container.Parent = Page
+            Container.Parent = Content
             
             local ContainerLayout = Instance.new("UIListLayout")
             ContainerLayout.Padding = UDim.new(0, 5 * ScaleFactor)
@@ -794,43 +775,10 @@ function Library:CreateWindow(Title, Options)
         NotificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         NotificationGui.Parent = CoreGui
         
-        -- Check stats panels for positioning
-        local statsPanel = nil
-        local statsPanelPosition = nil
-        local statsPanelSize = nil
-        
-        for _, panel in pairs(Library.StatsPanels) do
-            if panel.Frame and panel.Frame.Parent and panel.Frame.Visible then
-                local frameAbsPos = panel.Frame.AbsolutePosition
-                if frameAbsPos.X > ScreenSize.X / 2 then
-                    statsPanel = panel
-                    statsPanelPosition = panel.Frame.AbsolutePosition
-                    statsPanelSize = panel.Frame.AbsoluteSize
-                    break
-                end
-            end
-        end
-        
         -- Calculate position
         local startY = 15 * ScaleFactor
         local notificationHeight = 45 * ScaleFactor
         local notificationWidth = 200 * ScaleFactor
-        
-        if statsPanel then
-            local panelTop = statsPanelPosition.Y
-            local panelBottom = statsPanelPosition.Y + statsPanelSize.Y
-            
-            local spaceAbove = panelTop - 10
-            local spaceBelow = ScreenSize.Y - panelBottom - 10
-            
-            if spaceAbove >= notificationHeight + 20 then
-                startY = 15 * ScaleFactor
-            elseif spaceBelow >= notificationHeight + 20 then
-                startY = panelBottom + 10
-            else
-                startY = 15 * ScaleFactor
-            end
-        end
         
         -- Create notification
         local Notification = Instance.new("Frame")
@@ -1067,9 +1015,7 @@ function Library:CreateWindow(Title, Options)
         local function UpdateStatsContentSize()
             local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
             if ContentHeight > 0 then
-                TweenService:Create(StatsContent, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, -8 * ScaleFactor, 0, ContentHeight)
-                }):Play()
+                StatsContent.Size = UDim2.new(1, -8 * ScaleFactor, 0, ContentHeight)
             end
         end
         
@@ -1107,8 +1053,8 @@ function Library:CreateWindow(Title, Options)
             StatsList = {"FPS", "Ping", "Memory"}
         end
         
-        -- Create stats with animation
-        local function CreateStatLabel(StatName)
+        -- Create stats
+        for _, StatName in pairs(StatsList) do
             local StatLabel = Instance.new("TextLabel")
             StatLabel.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
             StatLabel.BackgroundTransparency = 1
@@ -1119,19 +1065,6 @@ function Library:CreateWindow(Title, Options)
             StatLabel.TextXAlignment = Enum.TextXAlignment.Left
             StatLabel.Parent = StatsContent
             
-            StatLabel.TextTransparency = 1
-            StatLabel.Position = UDim2.new(0, -20 * ScaleFactor, 0, StatLabel.Position.Y.Offset)
-            
-            TweenService:Create(StatLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                TextTransparency = 0,
-                Position = UDim2.new(0, 0, 0, StatLabel.Position.Y.Offset)
-            }):Play()
-            
-            return StatLabel
-        end
-        
-        for _, StatName in pairs(StatsList) do
-            local StatLabel = CreateStatLabel(StatName)
             StatLabels[StatName] = StatLabel
             StatFunctions[StatName] = DefaultStats[StatName]
         end
@@ -1158,48 +1091,26 @@ function Library:CreateWindow(Title, Options)
             
             if PanelMinimized then
                 MinButton.Text = "+"
-                TweenService:Create(StatsContent, TweenInfo.new(0.3), {
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 4 * ScaleFactor, 0, 0)
-                }):Play()
-                task.wait(0.15)
                 StatsContent.Visible = false
-                
-                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 24 * ScaleFactor)
-                }):Play()
+                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, 24 * ScaleFactor)
             else
                 MinButton.Text = "−"
                 StatsContent.Visible = true
-                
                 UpdateStatsContentSize()
                 local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                 local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                
-                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
-                }):Play()
-                
-                StatsContent.BackgroundTransparency = 1
-                StatsContent.Position = UDim2.new(0, 4 * ScaleFactor, 0, 0)
-                TweenService:Create(StatsContent, TweenInfo.new(0.3), {
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 4 * ScaleFactor, 0, 28 * ScaleFactor)
-                }):Play()
-                
+                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
                 PanelOriginalSize = StatsFrame.Size
             end
         end)
         
         CloseButton.MouseButton1Click:Connect(function()
             task.cancel(statsRefreshThread)
-            
-            TweenService:Create(StatsFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            TweenService:Create(StatsFrame, TweenInfo.new(0.2), {
                 Size = UDim2.new(0, 0, 0, 0),
                 Position = UDim2.new(0.5, StatsFrame.Position.X.Offset, 0.5, StatsFrame.Position.Y.Offset),
                 BackgroundTransparency = 1
             }):Play()
-            
             task.wait(0.2)
             StatsGui:Destroy()
             
@@ -1217,7 +1128,16 @@ function Library:CreateWindow(Title, Options)
         }
         
         function StatsPanelObject:AddStat(Name, Function)
-            local StatLabel = CreateStatLabel(Name)
+            local StatLabel = Instance.new("TextLabel")
+            StatLabel.Size = UDim2.new(1, 0, 0, 18 * ScaleFactor)
+            StatLabel.BackgroundTransparency = 1
+            StatLabel.Text = Name .. ": "
+            StatLabel.TextColor3 = Theme.Text
+            StatLabel.Font = Enum.Font.Gotham
+            StatLabel.TextSize = 9 * ScaleFactor
+            StatLabel.TextXAlignment = Enum.TextXAlignment.Left
+            StatLabel.Parent = StatsContent
+            
             StatLabels[Name] = StatLabel
             StatFunctions[Name] = Function
             
@@ -1225,25 +1145,14 @@ function Library:CreateWindow(Title, Options)
             if not PanelMinimized then
                 local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                 local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                
-                TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
-                }):Play()
-                
+                StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
                 PanelOriginalSize = StatsFrame.Size
             end
         end
         
         function StatsPanelObject:RemoveStat(Name)
             if StatLabels[Name] then
-                local label = StatLabels[Name]
-                TweenService:Create(label, TweenInfo.new(0.2), {
-                    TextTransparency = 1,
-                    Position = UDim2.new(0, -20 * ScaleFactor, 0, label.Position.Y.Offset)
-                }):Play()
-                
-                task.wait(0.2)
-                label:Destroy()
+                StatLabels[Name]:Destroy()
                 StatLabels[Name] = nil
                 StatFunctions[Name] = nil
                 
@@ -1251,11 +1160,7 @@ function Library:CreateWindow(Title, Options)
                 if not PanelMinimized then
                     local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
                     local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-                    
-                    TweenService:Create(StatsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
-                    }):Play()
-                    
+                    StatsFrame.Size = UDim2.new(PanelOriginalSize.X.Scale, PanelOriginalSize.X.Offset, 0, NewHeight)
                     PanelOriginalSize = StatsFrame.Size
                 end
             end
@@ -1264,21 +1169,11 @@ function Library:CreateWindow(Title, Options)
         function StatsPanelObject:SetPosition(NewPosition)
             Position = NewPosition
             StatsPanelObject.Position = NewPosition
-            
-            TweenService:Create(StatsFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Position = Positions[NewPosition] or Positions["TopRight"]
-            }):Play()
+            StatsFrame.Position = Positions[NewPosition] or Positions["TopRight"]
         end
         
         function StatsPanelObject:SetTitle(NewTitle)
             StatsTitle.Text = NewTitle
-            TweenService:Create(StatsTitle, TweenInfo.new(0.2), {
-                TextTransparency = 0.5
-            }):Play()
-            task.wait(0.1)
-            TweenService:Create(StatsTitle, TweenInfo.new(0.2), {
-                TextTransparency = 0
-            }):Play()
         end
         
         function StatsPanelObject:Refresh()
@@ -1294,19 +1189,12 @@ function Library:CreateWindow(Title, Options)
             StatsGui:Destroy()
         end
         
-        task.spawn(function()
-            task.wait(0.2)
-            UpdateStatsContentSize()
-            local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
-            local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
-            
-            StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, 24 * ScaleFactor)
-            TweenService:Create(StatsFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
-            }):Play()
-            
-            PanelOriginalSize = StatsFrame.Size
-        end)
+        -- Initial size calculation
+        UpdateStatsContentSize()
+        local ContentHeight = StatsListLayout.AbsoluteContentSize.Y
+        local NewHeight = math.max(120 * ScaleFactor, ContentHeight + 32 * ScaleFactor)
+        StatsFrame.Size = UDim2.new(Size.X.Scale, Size.X.Offset, 0, NewHeight)
+        PanelOriginalSize = StatsFrame.Size
         
         table.insert(Library.StatsPanels, StatsPanelObject)
         return StatsPanelObject
